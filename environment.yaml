@@ -1,0 +1,27 @@
+name: sc_integration
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.10
+  - jupyterlab
+  - scanpy
+  - anndata
+  - pandas
+  - numpy
+  - matplotlib
+  - seaborn
+  - scikit-learn
+  - scipy
+  - harmonypy
+  - scvi-tools
+  - scib
+  - ipywidgets
+  - tqdm
+  - pip
+  - scib.metrics
+  - pip:
+      - loompy
+      - scrublet
+      - scprep

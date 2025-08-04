@@ -13,10 +13,6 @@ if (!dir.exists("Anndata/pca")) {
   dir.create("Anndata/pca")
 }
 
-if (!dir.exists("Anndata/pca")) {
-  dir.create("Anndata/pca")
-}
-
 if (!dir.exists("Anndata/gene_names")) {
   dir.create("Anndata/gene_names")
 }
