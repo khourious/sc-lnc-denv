@@ -126,6 +126,7 @@ limiares_mt <- list(
 ## --- Função para processar amostras ---
 processar_amostras <- function(arquivos_h5, amostras_por_arquivo, limiares_mt) {
   objs <- list()
+  
   for (nome in names(arquivos_h5)) {
     counts <- Read10X_h5(arquivos_h5[[nome]])
     total <- ncol(counts)
@@ -146,7 +147,7 @@ processar_amostras <- function(arquivos_h5, amostras_por_arquivo, limiares_mt) {
       # Calcular percent.mt
       seu[["percent.mt"]] <- PercentageFeatureSet(seu, pattern = "^MT-")
       
-      # Filtrar por limiar
+      # Filtrar por limiar de percent.mt
       if (amostras[i] %in% names(limiares_mt)) {
         limiar <- limiares_mt[[amostras[i]]]
         seu <- subset(seu, subset = percent.mt < limiar)
@@ -158,9 +159,23 @@ processar_amostras <- function(arquivos_h5, amostras_por_arquivo, limiares_mt) {
       sce <- scDblFinder(sce)
       seu <- seu[, sce$scDblFinder.class == "singlet"]
       
+      # 🔍 Filtro de qualidade celular baseado em outliers
+      lim_nFeature <- quantile(seu$nFeature_RNA, 0.75, na.rm = TRUE) + 1.5 * IQR(seu$nFeature_RNA, na.rm = TRUE)
+      lim_nCount <- quantile(seu$nCount_RNA, 0.75, na.rm = TRUE) + 1.5 * IQR(seu$nCount_RNA, na.rm = TRUE)
+      
+      seu$qualidade <- ifelse(
+        seu$nFeature_RNA <= lim_nFeature & seu$nCount_RNA <= lim_nCount,
+        "alta", "baixa"
+      )
+      
+      # Manter apenas células de alta qualidade
+      seu <- subset(seu, subset = qualidade == "alta")
+      message("✅ ", amostras[i], ": mantidas células de alta qualidade")
+      
       objs[[amostras[i]]] <- seu
     }
   }
+  
   return(objs)
 }
 
