@@ -126,6 +126,12 @@ limiares_mt <- list(
 ## --- Função para processar amostras ---
 processar_amostras <- function(arquivos_h5, amostras_por_arquivo, limiares_mt) {
   objs <- list()
+  resumo_doublets <- data.frame(
+    amostra = character(),
+    singlets = integer(),
+    doublets = integer(),
+    stringsAsFactors = FALSE
+  )
   
   for (nome in names(arquivos_h5)) {
     counts <- Read10X_h5(arquivos_h5[[nome]])
@@ -157,9 +163,20 @@ processar_amostras <- function(arquivos_h5, amostras_por_arquivo, limiares_mt) {
       # Identificar doublets
       sce <- as.SingleCellExperiment(seu)
       sce <- scDblFinder(sce)
+      
+      # Contar singlets e doublets
+      tab <- table(sce$scDblFinder.class)
+      singlets <- tab["singlet"]
+      doublets <- tab["doublet"]
+      resumo_doublets <- rbind(resumo_doublets, data.frame(
+        amostra = amostras[i],
+        singlets = ifelse(is.na(singlets), 0, singlets),
+        doublets = ifelse(is.na(doublets), 0, doublets)
+      ))
+      
       seu <- seu[, sce$scDblFinder.class == "singlet"]
       
-      # 🔍 Filtro de qualidade celular baseado em outliers
+      # Filtro de qualidade celular
       lim_nFeature <- quantile(seu$nFeature_RNA, 0.75, na.rm = TRUE) + 1.5 * IQR(seu$nFeature_RNA, na.rm = TRUE)
       lim_nCount <- quantile(seu$nCount_RNA, 0.75, na.rm = TRUE) + 1.5 * IQR(seu$nCount_RNA, na.rm = TRUE)
       
@@ -168,7 +185,6 @@ processar_amostras <- function(arquivos_h5, amostras_por_arquivo, limiares_mt) {
         "alta", "baixa"
       )
       
-      # Manter apenas células de alta qualidade
       seu <- subset(seu, subset = qualidade == "alta")
       message("✅ ", amostras[i], ": mantidas células de alta qualidade")
       
@@ -176,8 +192,12 @@ processar_amostras <- function(arquivos_h5, amostras_por_arquivo, limiares_mt) {
     }
   }
   
-  return(objs)
+  # Salvar resumo como CSV (opcional)
+  write.csv(resumo_doublets, "resumo_doublets.csv", row.names = FALSE)
+  
+  return(list(objetos = objs, resumo = resumo_doublets))
 }
+
 
 # --- Leitura e pré-processamento ---
 seurat_list <- processar_amostras(arquivos_h5, amostras_por_arquivo, limiares_mt)
