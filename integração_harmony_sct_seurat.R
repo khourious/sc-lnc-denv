@@ -170,11 +170,11 @@ seurat_list <- processar_amostras(arquivos_h5, amostras_por_arquivo, limiares_mt
 
 ####### - PCA + Harmony
 # --- Normalização padrão ---
-seurat_list <- lapply(seurat_list, NormalizeData)
-seurat_list <- lapply(seurat_list, FindVariableFeatures)
+harmony_merged_pca <- lapply(harmony_merged_pca, NormalizeData)
+harmony_merged_pca <- lapply(harmony_merged_pca, FindVariableFeatures)
 
 # --- Merge dos objetos para integração ---
-harmony_merged_pca <- merge(seurat_list[[1]], y = seurat_list[-1], add.cell.ids = names(seurat_list))
+harmony_merged_pca <- merge(harmony_merged_pca[[1]], y = harmony_merged_pca[-1], add.cell.ids = names(harmony_merged_pca))
 harmony_merged_pca <- ScaleData(harmony_merged_pca, vars.to.regress = "percent.mt")
 harmony_merged_pca <- RunUMAP(harmony_merged_pca, reduction = "harmony", dims = 1:30, n.neighbors = 50)
 
@@ -204,7 +204,7 @@ write.csv(markers, file = "harmony_pca_markers.csv", row.names = FALSE)
 # SCT + seurat 
 
 # --- Normalização com SCTransform por amostra ---
-seurat_list <- lapply(seurat_list, function(obj) {
+seurat_list_sct <- lapply(seurat_list, function(obj) {
   SCTransform(obj, vars.to.regress = "percent.mt", verbose = FALSE)
 })
 
@@ -219,44 +219,20 @@ anchors <- FindIntegrationAnchors(seurat_list_sct, normalization.method = "SCT",
 merged_sct_seurat <- IntegrateData(anchors, normalization.method = "SCT")
 
 # --- PCA + UMAP ---
-merged_sct_seurat <- RunPCA(merged_sct_seurat)
+merged_sct_seurat<- RunPCA(merged_sct_seurat)
 merged_sct_seurat <- RunUMAP(merged_sct_seurat, dims = 1:30)
 merged_sct_seurat <- FindNeighbors(merged_sct_seurat, dims = 1:30)
 
 # --- Visualizar UMAP com clusters
 DimPlot(merged_sct_seurat, reduction = "umap", group.by = "seurat_clusters", label = TRUE)
+DimPlot(merged_sct_seurat, reduction = "umap", group.by = "orig.ident", label = FALSE)
 
 # --- Identificar marcadores de cluster
 markers_sct_seurat <- FindAllMarkers(merged_sct_seurat, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
 
 # --- Salvar objeto final
-saveRDS(harmony_merged_pca, file = "harmony_merged_pca.rds")
+saveRDS(merged_sct_seurat, file = "sct_seurat_merged.rds")
 write.csv(markers_sct_seurat, file = "seurat_sct_markers.csv", row.names = FALSE)
-
-
-# --- Merge dos objetos para integração ---
-seurat_merged <- merge(seurat_list[[1]], y = seurat_list[-1], add.cell.ids = names(seurat_list))
-
-# --- PCA com dados transformados
-seurat_merged <- RunPCA(seurat_merged, verbose = FALSE)
-
-# --- Integração com Harmony
-seurat_merged <- RunHarmony(seurat_merged, group.by.vars = "orig.ident")
-
-# --- UMAP e clustering com Harmony embeddings
-seurat_merged <- RunUMAP(seurat_merged, reduction = "harmony", dims = 1:30)
-seurat_merged <- FindNeighbors(seurat_merged, reduction = "harmony", dims = 1:30)
-seurat_merged <- FindClusters(seurat_merged, resolution = 0.5)
-
-# --- Visualizar UMAP com clusters
-DimPlot(seurat_merged, reduction = "umap", group.by = "seurat_clusters", label = TRUE)
-
-# --- Identificar marcadores de cluster
-markers <- FindAllMarkers(seurat_merged, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
-
-# --- Salvar objeto final
-saveRDS(seurat_merged, file = "seurat_sct_harmony_final.rds")
-
 
 ############
 ######### sct + harmony
@@ -273,12 +249,10 @@ merged_sct_harmony <- RunUMAP(merged_sct_harmony, reduction = "harmony", dims = 
 merged_sct_harmony <- FindNeighbors(merged_sct_harmony, reduction = "harmony", dims = 1:30)
 merged_sct_harmony <- FindClusters(merged_sct_harmony)
 
-
 # --- Visualização ---
 DimPlot(harmony_merged_pca group.by = "orig.ident") + ggtitle("PCA + Harmony")
 DimPlot(merged_sct_seurat, group.by = "orig.ident") + ggtitle("SCT + Seurat")
 DimPlot(merged_sct_harmony, group.by = "orig.ident") + ggtitle("SCT + Harmony")
-
 
 
 # Silhouette Score
