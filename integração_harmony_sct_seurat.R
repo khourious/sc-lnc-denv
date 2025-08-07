@@ -292,7 +292,9 @@ harmony_merged_pca <- FindNeighbors(harmony_merged_pca, reduction = "harmony", d
 harmony_merged_pca <- FindClusters(harmony_merged_pca, resolution = 0.5)
 
 harmony_merged_pca@meta.data
+
 # --- Visualizar UMAP com clusters
+harmony_merged_pca <- RunUMAP(harmony_merged_pca, reduction = "harmony", dims = 1:30)
 DimPlot(harmony_merged_pca, reduction = "umap", group.by = "seurat_clusters", label = TRUE)
 DimPlot(harmony_merged_pca, reduction = "umap", group.by = "orig.ident", label = FALSE)
 
