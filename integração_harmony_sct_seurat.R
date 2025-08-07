@@ -202,20 +202,90 @@ processar_amostras <- function(arquivos_h5, amostras_por_arquivo, limiares_mt) {
 # --- Leitura e pré-processamento ---
 seurat_list <- processar_amostras(arquivos_h5, amostras_por_arquivo, limiares_mt)
 
+## --- Função para processar amostras ---
+processar_amostras <- function(arquivos_h5, amostras_por_arquivo, limiares_mt) {
+  objs <- list()
+  
+  for (nome in names(arquivos_h5)) {
+    counts <- Read10X_h5(arquivos_h5[[nome]])
+    total <- ncol(counts)
+    amostras <- amostras_por_arquivo[[nome]]
+    n <- length(amostras)
+    por_amostra <- floor(total / n)
+    
+    for (i in seq_along(amostras)) {
+      ini <- (i - 1) * por_amostra + 1
+      fim <- if (i == n) total else i * por_amostra
+      barcodes <- colnames(counts)[ini:fim]
+      sub <- counts[, barcodes]
+      colnames(sub) <- paste0(amostras[i], "_", barcodes)
+      
+      seu <- CreateSeuratObject(sub, project = amostras[i])
+      seu$orig.ident <- amostras[i]
+      
+      message("📦 ", amostras[i], ": ", ncol(seu), " células iniciais")
+      
+      # Calcular percent.mt
+      seu[["percent.mt"]] <- PercentageFeatureSet(seu, pattern = "^MT-")
+      
+      # Filtrar por limiar de percent.mt
+      if (amostras[i] %in% names(limiares_mt)) {
+        limiar <- limiares_mt[[amostras[i]]]
+        seu <- subset(seu, subset = percent.mt < limiar)
+        message("🧹 ", amostras[i], ": filtrado com percent.mt <", limiar, " → ", ncol(seu), " células restantes")
+      }
+      
+      if (ncol(seu) == 0) {
+        message("⚠️ ", amostras[i], ": nenhuma célula após filtro mitocondrial. Ignorado.")
+        next
+      }
+      
+      # Identificar e remover doublets
+      sce <- as.SingleCellExperiment(seu)
+      sce <- scDblFinder(sce)
+      seu <- seu[, sce$scDblFinder.class == "singlet"]
+      message("🧬 ", amostras[i], ": singlets mantidos → ", ncol(seu), " células")
+      
+      # Filtro de qualidade celular
+      lim_nFeature <- quantile(seu$nFeature_RNA, 0.75, na.rm = TRUE) + 1.5 * IQR(seu$nFeature_RNA, na.rm = TRUE)
+      lim_nCount <- quantile(seu$nCount_RNA, 0.75, na.rm = TRUE) + 1.5 * IQR(seu$nCount_RNA, na.rm = TRUE)
+      
+      seu$qualidade <- ifelse(
+        seu$nFeature_RNA <= lim_nFeature & seu$nCount_RNA <= lim_nCount,
+        "alta", "baixa"
+      )
+      
+      seu <- subset(seu, subset = qualidade == "alta")
+      message("✅ ", amostras[i], ": ", ncol(seu), " células de alta qualidade")
+      
+      if (ncol(seu) > 0) {
+        objs[[amostras[i]]] <- seu
+      } else {
+        message("⚠️ ", amostras[i], ": nenhuma célula de alta qualidade. Ignorado.")
+      }
+    }
+  }
+  
+  return(objs)
+}
+
+# --- Leitura e pré-processamento ---
+seurat_list <- processar_amostras(arquivos_h5, amostras_por_arquivo, limiares_mt)
 
 ####### - PCA + Harmony
 # --- Normalização padrão ---
-harmony_merged_pca <- lapply(harmony_merged_pca, NormalizeData)
-harmony_merged_pca <- lapply(harmony_merged_pca, FindVariableFeatures)
+seurat_list_norm <- lapply(seurat_list, NormalizeData)
+seurat_list_norm <- lapply(seurat_list_norm, FindVariableFeatures)
 
-# --- Merge dos objetos para integração ---
-harmony_merged_pca <- merge(harmony_merged_pca[[1]], y = harmony_merged_pca[-1], add.cell.ids = names(harmony_merged_pca))
-harmony_merged_pca <- ScaleData(harmony_merged_pca, vars.to.regress = "percent.mt")
-harmony_merged_pca <- RunUMAP(harmony_merged_pca, reduction = "harmony", dims = 1:30, n.neighbors = 50)
+# --- Merge dos objetos ---
+merged_seurat <- merge(seurat_list_norm[[1]], y = seurat_list_norm[-1], add.cell.ids = names(seurat_list_norm))
 
+# --- Escalonamento e PCA ---
+merged_seurat <- ScaleData(merged_seurat)
+merged_seurat <- RunPCA(merged_seurat)
 
-# --- Harmony ----
-harmony_merged_pca <- RunHarmony(harmony_merged_pca, group.by.vars = "orig.ident")
+# --- Integração com Harmony ---
+harmony_merged_pca <- RunHarmony(merged_seurat, group.by.vars = "orig.ident")
 
 # --- clustering com Harmony embeddings
 harmony_merged_pca <- FindNeighbors(harmony_merged_pca, reduction = "harmony", dims = 1:30)
