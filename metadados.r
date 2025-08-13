@@ -34,6 +34,8 @@ amostras_por_arquivo <- list(
              "SRR22739546","SRR22739548","SRR22739553","SRR22739554")
 )
 
+
+
 amostras_por_arquivo <- list(
   dt1_control = "Healthy_Control_run1",
   dt1_DF = c("DF_Day_minus_1_run1","DF_Day_minus_1_run2","DF_Day_minus_2_run1","DF_Def_run1",
@@ -94,7 +96,7 @@ metadata_samples <- data.frame(
              "SRR22739526","SRR22739528","SRR22739531","SRR22739532","SRR22739540","SRR22739542",
              "SRR22739546","SRR22739548","SRR22739553","SRR22739554"),
 
-timepoint= c("control", "-1", "-1",  "-2",
+timepoint= c(  "control", "-1", "-1",  "-2",
               "0", "0", "14",
               "-1", "-1", "-2",
               "0", "0", "14",
@@ -304,3 +306,49 @@ ggplot(df, aes(x = timepoint, y = n, group = 1)) +
     y = "Número de células"
   ) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# Amostras com tempo relativo à defervescência
+amostras_defervescente <- unlist(amostras_por_arquivo[c("dt1_control", "dt1_DF", "dt1_DHF", "dt2_DF_1", "dt2_DF_2", "dt3_DF", "dt3_DHF")])
+
+# Amostras com tempo absoluto de febre
+amostras_febre_absoluta <- unlist(amostras_por_arquivo[c("dt4_control", "dt4_DF", "dt4_DWS", "dt4_SD")])
+
+library(dplyr)
+library(ggplot2)
+
+# Extrair metadados
+meta <- seurat_integrado@meta.data
+
+# Defervescente
+df_def <- meta %>%
+  filter(orig.ident %in% amostras_defervescente) %>%
+  count(timepoint) %>%
+  mutate(timepoint = as.numeric(as.character(timepoint))) %>%
+  arrange(timepoint)
+
+# Febre absoluta
+df_febre <- meta %>%
+  filter(orig.ident %in% amostras_febre_absoluta) %>%
+  count(timepoint) %>%
+  mutate(timepoint = as.numeric(as.character(timepoint))) %>%
+  arrange(timepoint)
+
+
+# Gráfico 1: tempo relativo à defervescência
+p1 <- ggplot(df_def, aes(x = timepoint, y = n)) +
+  geom_line(color = "#3498DB", size = 1) +
+  geom_point(color = "#2980B9", size = 2) +
+  theme_minimal() +
+  labs(title = "Células ao longo do tempo (defervescência)", x = "Dia relativo", y = "Número de células")
+
+# Gráfico 2: tempo absoluto de febre
+p2 <- ggplot(df_febre, aes(x = timepoint, y = n)) +
+  geom_line(color = "#E74C3C", size = 1) +
+  geom_point(color = "#C0392B", size = 2) +
+  theme_minimal() +
+  labs(title = "Células ao longo do tempo (dias de febre)", x = "Dia de febre", y = "Número de células")
+
+# Mostrar lado a lado
+library(patchwork)
+p1 + p2
