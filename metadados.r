@@ -64,76 +64,158 @@ metadata_denv <- data.frame(
 )
 
 metadata_samples <- data.frame(
-  sample_id = c("Healthy_Control_run1","DF_Day_minus_1_run1","DF_Day_minus_1_run2","DF_Day_minus_2_run1","DF_Def_run1",
-             "DF_Def_run2","DF_Wk2_run1",
+  sample_id = c("Healthy_Control_run1",
+             "DF_Day_minus_1_run1","DF_Day_minus_1_run2","DF_Day_minus_2_run1",
+             "DF_Def_run1","DF_Def_run2",
+             "DF_Wk2_run1",
              "DHF_Day_minus_1_run1","DHF_Day_minus_1_run2","DHF_Day_minus_2_run1",
-              "DHF_Def_run1","DHF_Def_run2","DHF_Wk2_run1",
+             "DHF_Def_run1","DHF_Def_run2",
+             "DHF_Wk2_run1",
+
               "SRR12215051","SRR12215052","SRR12215053",
               "SRR12215054","SRR12215055","SRR12215056",
+
               "SRR11088622_Primary1_D1","SRR11088623_Primary1_D3",
               "SRR11088624_Primary2_D1","SRR11088625_Primary2_D5",
               "SRR11088626_Primary3_D1","SRR11088627_Primary3_D2",
+
               "SRR11088634_Secondary3_D0","SRR11088635_Secondary3_D1","SRR11088636_Secondary3_D5",
+
               "SRR11088628_Secondary1_D0","SRR11088629_Secondary1_D1","SRR11088630_Secondary1_D7",
               "SRR11088631_Secondary2_D1","SRR11088632_Secondary2_D1","SRR11088633_Secondary2_D5",
+
               "SRR22739533","SRR22739534","SRR22739543","SRR22739544","SRR22739551","SRR22739552", 
+
               "SRR22739530","SRR22739535","SRR22739536","SRR22739537","SRR22739539","SRR22739541",
              "SRR22739545","SRR22739547","SRR22739549","SRR22739550","SRR22739555",
+
              "SRR22739525","SRR22739527","SRR22739529","SRR22739538",
+
              "SRR22739526","SRR22739528","SRR22739531","SRR22739532","SRR22739540","SRR22739542",
              "SRR22739546","SRR22739548","SRR22739553","SRR22739554"),
 
-  sex = c("female", "male", "male", "male", "male", "male", "male",
-              "male", "male", "male", "male", "male", "male",
-              "male", "male", "male", 
-              "male", "male", "male",
-              "male", "male",
-              "male", "male",
-              "male", "male",
-              "female", "female",
-              "male", "male", "male",
-              "male", "male", "male",
-              "male", "male", "male",
-              "female", "female","female",
-              "female", "female","female",
-              "male", "NONE" ,"male", "female","female", "male",
-              "female", "male", "female", "female", "male", "female", 
-              "female", "male", "male", "male", "male", 
-              "male", "male", "male", "female",
-              "female", "female", "female", "male", "male", "female",
-              "none", "female", "female", "male"),
+timepoint= c("control", "-1", "-1",  "-2",
+              "0", "0", "14",
+              "-1", "-1", "-2",
+              "0", "0", "14",
 
-  group = c("control", "acute", "acute", "acute", "defervescence", "defervescence", "convalescent",
-            "acute", "acute", "acute", "defervescence", "defervescence", "convalescent",
+              "-3", "-2","180",
+               "-5", "-4", "180",
+
+               "1", "3", "1", "5","1","2",
+
+               "0", "1", "5",
+
+              "0", "1", "7", "1", "1", "5",
+
+              "control",  "control", "control", "control", "control", "control",
+
+              "6", "6", "7", "7","3",
+              "4", "7", "2", "1", "1", "7",
+
+              "6","3", "3", "2",
+
+             "T", "5", "5", "5",
+             "5", "6", "T",  "4", "6", "5"), 
+
+  sex = c("female", 
+          "male", "male", "male", 
+          "male", 
+          "male", "male",
+          "male", "male", "male", 
+          "male", 
+          "male", "male",
+          
+          "male", "male", "male", 
+          "male", "male", "male",
+
+           "male", "male",
+           "male", "male",
+           "male", "male",
+           "female", "female", "female",
+            
+            "male", "male", "male",
+            "female", "female","female",
+
+            "male", "NONE" ,"male", "female","female", "male",
+            "female", "male", "female", "female", "male", "female", 
+            "female", "male", "male", "male", "male", 
+            "male", "male", "male", "female",
+            "female", "female", "female", "male", "male", "female",
+            "NONE", "female", "female", "male"),
+            
+  group = c("control", 
+           "acute", "acute", "acute", 
+           "defervescence", "defervescence", 
+           "convalescent",
+            "acute", "acute", "acute", 
+            "defervescence", "defervescence", 
+            "convalescent",
+
             "acute", "acute", "acute",
             "acute", "acute", "acute",
+
             "acute", "post-defervescence",
             "acute", "post-defervescence",
             "acute", "post-defervescence",
+
             "defervescence", "post-defervescence", "post-defervescence",
+
             "defervescence", "post-defervescence", "post-defervescence",
             "post-defervescence", "post-defervescence", "post-defervescence",
+
             "control", "control", "control", "control", "control", "control",
+
             "acute", "acute", "acute", "acute", "acute", "acute",
+            "acute", "acute", "acute", "acute", "acute",
+
             "acute", "acute", "acute", "acute",
-            "acute", "acute", "acute", "acute",
+
             "acute", "acute", "acute", "acute", "acute", "acute",
             "acute", "acute", "acute", "acute"),
-  infection = c("control", "PRIMARY", "PRIMARY", "PRIMARY", "PRIMARY", "PRIMARY", "PRIMARY",
-               "PRIMARY", "PRIMARY", "PRIMARY", "PRIMARY", "PRIMARY", "PRIMARY",
+
+  infection = c("control", 
+              "PRIMARY", "PRIMARY", "PRIMARY", 
+              "PRIMARY", "PRIMARY", 
+              "PRIMARY",
+               "PRIMARY", "PRIMARY", "PRIMARY", 
+               "PRIMARY", "PRIMARY", 
+               "PRIMARY",
+
                "PRIMARY", "PRIMARY", "PRIMARY", 
                "PRIMARY", "PRIMARY", "PRIMARY",
+
                "PRIMARY", "PRIMARY",
               "PRIMARY", "PRIMARY",
               "PRIMARY", "PRIMARY",
+
               "SECUNDARY", "SECONDARY", "SECONDARY",
+
               "SECUNDARY", "SECUNDARY", "SECUNDARY",
+              "SECUNDARY", "SECUNDARY", "SECUNDARY",
+
               "control", "control", "control", "control", "control", "control",
+
               "SECUNDARY","SECUNDARY", "SECUNDARY", "SECUNDARY", "PRIMARY", "indeterminate",
               "SECUNDARY", "PRIMARY", "SECUNDARY", "SECUNDARY", "SECUNDARY", 
+
               "PRIMARY", "equiv", "PRIMARY", "PRIMARY",
+
               "PRIMARY", "SECUNDARY", "PRIMARY", "SECUNDARY", "SECUNDARY", "SECUNDARY",
-              "none", "SECONDARY", "SECONDARY","SECONDARY")
+              "NONE", "SECUNDARY", "SECUNDARY","SECUNDARY")
+)
+
+
+
+metadata_samples$timepoint_numeric <- suppressWarnings(as.numeric(metadata_samples$timepoint))
+
+for (i in seq_len(nrow(metadata_samples))) {
+  sample <- metadata_samples$sample_id[i]
+  cells <- WhichCells(seurat_integrado, idents = sample)
+  for (col in colnames(metadata_samples)[-1]) {
+    seurat_integrado[[col]][cells] <- metadata_samples[[col]][i]
+  }
+}
 
 
 # Inicializar lista para armazenar os metadados expandidos
@@ -188,3 +270,37 @@ DimPlot(seurat_integrado, reduction = "umap", group.by = "infection", label = TR
   ggtitle("UMAP por Infecção")
 
   
+DimPlot(seurat_integrado, group.by = "timepoint", label = TRUE) +
+  ggtitle("Distribuição de células por timepoint clínico")
+
+library(ggplot2)
+
+df <- seurat_integrado@meta.data %>%
+  dplyr::count(timepoint)
+
+ggplot(df, aes(x = timepoint, y = n)) +
+  geom_bar(stat = "identity", fill = "#1ABC9C") +
+  theme_minimal() +
+  labs(title = "Número de células por timepoint", x = "Timepoint", y = "Células")
+
+library(ggplot2)
+library(dplyr)
+
+# Agrupar e contar células por timepoint
+df <- seurat_integrado@meta.data %>%
+  dplyr::count(timepoint)
+
+# Converter timepoint para fator ordenado (se necessário)
+df$timepoint <- factor(df$timepoint, levels = sort(unique(df$timepoint)))
+
+# Criar gráfico de linha
+ggplot(df, aes(x = timepoint, y = n, group = 1)) +
+  geom_line(color = "#2C3E50", size = 1) +
+  geom_point(color = "#E74C3C", size = 2) +
+  theme_minimal() +
+  labs(
+    title = "Quantidade de células ao longo do tempo",
+    x = "Timepoint clínico",
+    y = "Número de células"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
