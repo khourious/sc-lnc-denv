@@ -203,15 +203,18 @@ processar_amostras <- function(arquivos_h5, amostras_por_arquivo, limiares_mt) {
 seurat_list <- processar_amostras(arquivos_h5, amostras_por_arquivo, limiares_mt)
 
 ## --- Função para processar amostras ---
-processar_amostras <- function(arquivos_h5, amostras_por_arquivo, limiares_mt) {
+processar_amostras <- function(arquivos_h5, amostras_por_arquivo, limiares_mt, metadata_samples, metadata_denv) {
   objs <- list()
   
-  for (nome in names(arquivos_h5)) {
-    counts <- Read10X_h5(arquivos_h5[[nome]])
+  for (nome_arquivo in names(arquivos_h5)) {
+    counts <- Read10X_h5(arquivos_h5[[nome_arquivo]])
     total <- ncol(counts)
-    amostras <- amostras_por_arquivo[[nome]]
+    amostras <- amostras_por_arquivo[[nome_arquivo]]
     n <- length(amostras)
     por_amostra <- floor(total / n)
+    
+    # 🔗 Metadados do arquivo H5
+    meta_denv <- metadata_denv[metadata_denv$sample_id == nome_arquivo, ]
     
     for (i in seq_along(amostras)) {
       ini <- (i - 1) * por_amostra + 1
@@ -223,12 +226,34 @@ processar_amostras <- function(arquivos_h5, amostras_por_arquivo, limiares_mt) {
       seu <- CreateSeuratObject(sub, project = amostras[i])
       seu$orig.ident <- amostras[i]
       
+      # 🔗 Metadados da amostra individual
+      meta_sample <- metadata_samples[metadata_samples$sample_id == amostras[i], ]
+      
+      if (nrow(meta_sample) == 1) {
+        for (col in colnames(meta_sample)) {
+          if (col != "sample_id") {
+            seu[[col]] <- meta_sample[[col]]
+          }
+        }
+      } else {
+        warning("⚠️ Metadados individuais não encontrados para ", amostras[i])
+      }
+      
+      # 🔗 Metadados do arquivo H5 (aplicado a todas as células da amostra)
+      if (nrow(meta_denv) == 1) {
+        for (col in colnames(meta_denv)) {
+          if (col != "sample_id") {
+            seu[[col]] <- meta_denv[[col]]
+          }
+        }
+      } else {
+        warning("⚠️ Metadados DENV não encontrados para arquivo ", nome_arquivo)
+      }
+      
       message("📦 ", amostras[i], ": ", ncol(seu), " células iniciais")
       
-      # Calcular percent.mt
       seu[["percent.mt"]] <- PercentageFeatureSet(seu, pattern = "^MT-")
       
-      # Filtrar por limiar de percent.mt
       if (amostras[i] %in% names(limiares_mt)) {
         limiar <- limiares_mt[[amostras[i]]]
         seu <- subset(seu, subset = percent.mt < limiar)
@@ -240,29 +265,7 @@ processar_amostras <- function(arquivos_h5, amostras_por_arquivo, limiares_mt) {
         next
       }
       
-      # Identificar e remover doublets
-      sce <- as.SingleCellExperiment(seu)
-      sce <- scDblFinder(sce)
-      seu <- seu[, sce$scDblFinder.class == "singlet"]
-      message("🧬 ", amostras[i], ": singlets mantidos → ", ncol(seu), " células")
-      
-      # Filtro de qualidade celular
-      lim_nFeature <- quantile(seu$nFeature_RNA, 0.75, na.rm = TRUE) + 1.5 * IQR(seu$nFeature_RNA, na.rm = TRUE)
-      lim_nCount <- quantile(seu$nCount_RNA, 0.75, na.rm = TRUE) + 1.5 * IQR(seu$nCount_RNA, na.rm = TRUE)
-      
-      seu$qualidade <- ifelse(
-        seu$nFeature_RNA <= lim_nFeature & seu$nCount_RNA <= lim_nCount,
-        "alta", "baixa"
-      )
-      
-      seu <- subset(seu, subset = qualidade == "alta")
-      message("✅ ", amostras[i], ": ", ncol(seu), " células de alta qualidade")
-      
-      if (ncol(seu) > 0) {
-        objs[[amostras[i]]] <- seu
-      } else {
-        message("⚠️ ", amostras[i], ": nenhuma célula de alta qualidade. Ignorado.")
-      }
+      objs[[amostras[i]]] <- seu
     }
   }
   
@@ -348,18 +351,49 @@ write.csv(markers_sct_seurat, file = "seurat_sct_markers.csv", row.names = FALSE
 merged_sct_harmony <- merge(seurat_list_sct[[1]], y = seurat_list_sct[-1], add.cell.ids = names(seurat_list_sct))
 
 # --- PCA e Harmony ---
+merged_sct_harmony <- FindVariableFeatures(merged_sct_harmony)
 merged_sct_harmony <- RunPCA(merged_sct_harmony)
-merged_sct_harmony <- RunHarmony(merged_sct_harmony, group.by.vars = "orig.ident")
-merged_sct_harmony <- RunUMAP(merged_sct_harmony, reduction = "harmony", dims = 1:30)
+merged_sct_harmony <- RunUMAP(merged_sct_harmony, dims = 1:30)
+
+head(merged_sct_harmony@meta.data)
+# --- visulização não integrada ---
+DimPlot(merged_sct_harmony, reduction = "umap", group.by = "orig.ident")
+DimPlot(merged_sct_harmony, reduction = "umap", group.by = "group")
+DimPlot(merged_sct_harmony, reduction = "umap", group.by = "disease")
+DimPlot(merged_sct_harmony, reduction = "umap", group.by = "timepoint")
+DimPlot(merged_sct_harmony, reduction = "umap", group.by = "virus")
+DimPlot(merged_sct_harmony, reduction = "umap", group.by = "age")
+DimPlot(merged_sct_harmony, reduction = "umap", group.by = "sex") 
+DimPlot(merged_sct_harmony, reduction = "umap", group.by = "infection") 
+DimPlot(merged_sct_harmony, reduction = "umap", group.by = "dataset") 
+
+# --- integração e UMAP ---
+integrated_sct_harmony <- RunHarmony(merged_sct_harmony, group.by.vars = "dataset")
+integrated_sct_harmony <- RunUMAP(integrated_sct_harmony, reduction = "harmony", dims = 1:30)
 
 # -- vizinhos e clusters ---
-merged_sct_harmony <- FindNeighbors(merged_sct_harmony, reduction = "harmony", dims = 1:30)
-merged_sct_harmony <- FindClusters(merged_sct_harmony)
+integrated_sct_harmony <- FindNeighbors(integrated_sct_harmony, reduction = "harmony", dims = 1:30)
+integrated_sct_harmony <- FindClusters(integrated_sct_harmony, resolution = c(0.2, 0.4, 0.5, 0.6, 0.8, 1))
+
+head(integrated_sct_harmony@meta.data)
+# --- Visualização Integrada ---
+DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "orig.ident")
+DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "group")
+DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "disease")
+DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "timepoint")
+DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "virus")
+DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "age")
+DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "sex") 
+DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "infection") 
+DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "dataset") 
+DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "SCT_snn_res.0.2") + ggtitle("Seurat Clusters - resolution = 0.2")
 
 # --- Visualização ---
-DimPlot(harmony_merged_pca group.by = "orig.ident") + ggtitle("PCA + Harmony")
+DimPlot(harmony_merged_pca, group.by = "orig.ident") + ggtitle("PCA + Harmony")
 DimPlot(merged_sct_seurat, group.by = "orig.ident") + ggtitle("SCT + Seurat")
-DimPlot(merged_sct_harmony, group.by = "orig.ident") + ggtitle("SCT + Harmony")
+DimPlot(integrated_sct_harmony, group.by = "orig.ident") + ggtitle("SCT + Harmony")
+
+saveRDS(integrated_sct_harmony, file = "sct_harmony_merged.rds")
 
 
 # Silhouette Score
