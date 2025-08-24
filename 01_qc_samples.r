@@ -8,7 +8,7 @@ library(scDblFinder)
 library(SingleCellExperiment)
 library(patchwork)
 
-setwd("C:/Users/joyce/OneDrive - FIOCRUZ/doutorado")
+setwd("~")
 
 # -------------------------------
 # 1. Defina todas as amostras
