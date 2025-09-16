@@ -21,29 +21,6 @@ amostras_por_arquivo <- list(
               "DHF_Def_run1","DHF_Def_run2","DHF_Wk2_run1"),
   dt2_DF_1  = c("SRR12215051","SRR12215052","SRR12215053"),
   dt2_DF_2 = c("SRR12215054","SRR12215055","SRR12215056"),
-  dt3_primary = c("SRR11088622_Primary1_D1","SRR11088623_Primary1_D3","SRR11088624_Primary2_D1",
-                  "SRR11088625_Primary2_D5","SRR11088626_Primary3_D1","SRR11088627_Primary3_D2"),
-  dt3_secundary = c("SRR11088628_Secondary1_D0","SRR11088629_Secondary1_D1","SRR11088630_Secondary1_D7",
-                    "SRR11088631_Secondary2_D1","SRR11088632_Secondary2_D1","SRR11088633_Secondary2_D5",
-                    "SRR11088634_Secondary3_D0","SRR11088635_Secondary3_D1","SRR11088636_Secondary3_D5"),
-  dt4_control = c("SRR22739533","SRR22739534","SRR22739543","SRR22739544","SRR22739551","SRR22739552"),
-  dt4_DF = c("SRR22739530","SRR22739535","SRR22739536","SRR22739537","SRR22739539","SRR22739541",
-             "SRR22739545","SRR22739547","SRR22739549","SRR22739550","SRR22739555"),
-  dt4_DWS = c("SRR22739525","SRR22739527","SRR22739529","SRR22739538"),
-  dt4_SD = c("SRR22739526","SRR22739528","SRR22739531","SRR22739532","SRR22739540","SRR22739542",
-             "SRR22739546","SRR22739548","SRR22739553","SRR22739554")
-)
-
-
-
-amostras_por_arquivo <- list(
-  dt1_control = "Healthy_Control_run1",
-  dt1_DF = c("DF_Day_minus_1_run1","DF_Day_minus_1_run2","DF_Day_minus_2_run1","DF_Def_run1",
-             "DF_Def_run2","DF_Wk2_run1"),
-  dt1_DHF = c("DHF_Day_minus_1_run1","DHF_Day_minus_1_run2","DHF_Day_minus_2_run1",
-              "DHF_Def_run1","DHF_Def_run2","DHF_Wk2_run1"),
-  dt2_DF_1  = c("SRR12215051","SRR12215052","SRR12215053"),
-  dt2_DF_2 = c("SRR12215054","SRR12215055","SRR12215056"),
   dt3_DF = c("SRR11088622_Primary1_D1","SRR11088623_Primary1_D3","SRR11088624_Primary2_D1",
               "SRR11088625_Primary2_D5","SRR11088626_Primary3_D1","SRR11088627_Primary3_D2",
               "SRR11088634_Secondary3_D0","SRR11088635_Secondary3_D1","SRR11088636_Secondary3_D5"),
@@ -60,66 +37,125 @@ amostras_por_arquivo <- list(
 # --- metadata DENV ---
 
 metadata_denv <- data.frame(
-  sample_id = c("dt1_control", "dt1_DF", "dt1_DHF", "dt2_DF_1", "dt2_DF_2", "dt3_DF", "dt3_DHF", "dt4_control", "dt4_DF", "dt4_DWS", "dt4_SD"),
+  sample_id = c("dt1_control", "dt1_DF", "dt1_DHF", "dt2_DF_1", "dt2_DF_2", "dt3_primary", "dt3_secundary", "dt4_control", "dt4_DF", "dt4_DWS", "dt4_SD"),
   age = c("adult", "adult", "adult", "child", "child", "child", "child", "child", "child", "child", "child"),
-  virus = c("control", "DENV-3", "DENV-3", "DENV-1", "DENV-1", "DENV-1", "DENV-3/1", "control", "NONE", "NONE", "NONE")
+  virus = c("control", "DENV-3", "DENV-3", "DENV-1", "DENV-1", "DENV-1", "DENV-3/1", "control", "NONE", "NONE", "NONE"),
+  dataset = c("dataset_1","dataset_1","dataset_1","dataset_2","dataset_2","dataset_3","dataset_3","dataset_4","dataset_4","dataset_4","dataset_4")
 )
+
 
 metadata_samples <- data.frame(
   sample_id = c("Healthy_Control_run1",
-             "DF_Day_minus_1_run1","DF_Day_minus_1_run2","DF_Day_minus_2_run1",
-             "DF_Def_run1","DF_Def_run2",
-             "DF_Wk2_run1",
-             "DHF_Day_minus_1_run1","DHF_Day_minus_1_run2","DHF_Day_minus_2_run1",
-             "DHF_Def_run1","DHF_Def_run2",
-             "DHF_Wk2_run1",
+                "DF_Day_minus_1_run1","DF_Day_minus_1_run2","DF_Day_minus_2_run1",
+                "DF_Def_run1","DF_Def_run2",
+                "DF_Wk2_run1",
+                "DHF_Day_minus_1_run1","DHF_Day_minus_1_run2","DHF_Day_minus_2_run1",
+                "DHF_Def_run1","DHF_Def_run2",
+                "DHF_Wk2_run1",
+                
+                "SRR12215051","SRR12215052","SRR12215053",
+                "SRR12215054","SRR12215055","SRR12215056",
+                
+                "SRR11088622_Primary1_D1","SRR11088623_Primary1_D3",
+                "SRR11088624_Primary2_D1","SRR11088625_Primary2_D5",
+                "SRR11088626_Primary3_D1","SRR11088627_Primary3_D2",
+                
+                "SRR11088634_Secondary3_D0","SRR11088635_Secondary3_D1","SRR11088636_Secondary3_D5",
+                
+                "SRR11088628_Secondary1_D0","SRR11088629_Secondary1_D1","SRR11088630_Secondary1_D7",
+                "SRR11088631_Secondary2_D1","SRR11088632_Secondary2_D1","SRR11088633_Secondary2_D5",
+                
+                "SRR22739533","SRR22739534","SRR22739543","SRR22739544","SRR22739551","SRR22739552", 
+                
+                "SRR22739530","SRR22739535","SRR22739536","SRR22739537","SRR22739539","SRR22739541",
+                "SRR22739545","SRR22739547","SRR22739549","SRR22739550","SRR22739555",
+                
+                "SRR22739525","SRR22739527","SRR22739529","SRR22739538",
+                
+                "SRR22739526","SRR22739528","SRR22739531","SRR22739532","SRR22739540","SRR22739542",
+                "SRR22739546","SRR22739548","SRR22739553","SRR22739554"),
+  disease = c("control",
+            "DF","DF","DF",
+            "DF","DF",
+            "DF",
+            "DHF","DHF","DHF",
+            "DHF","DHF",
+            "DHF",
+            
+            "DF","DF","DF",
+            "DF","DF","DF",
+            
+            "DF","DF",
+            "DF","DF",
+            "DF","DF",
+            "DF","DF","DF",
+            
+            "DHF","DHF","DHF",
+            "DHF","DHF","DHF",
+            
+            "control", "control", "control", "control", "control", "control",
+  
+            "DF","DF","DF","DF","DF","DF",
+            "DF","DF","DF","DF","DF",
+            
+            "DWS","DWS","DWS","DWS",
+            
+            "SD", "SD","SD","SD","SD","SD",
+            "SD","SD","SD","SD"),
+  
+  dengue_classification = c("control",
+                              "DF","DF","DF",
+                              "DF","DF",
+                              "DF",
+                              "DHF","DHF","DHF",
+                              "DHF","DHF",
+                              "DHF",
+                              
+                              "DF","DF","DF",
+                              "DF","DF","DF",
+                              
+                              "DF","DF",
+                              "DF","DF",
+                              "DF","DF",
+                              "DF","DF","DF",
+                              
+                              "DHF","DHF","DHF",
+                              "DHF","DHF","DHF",
+                              
+                              "control", "control", "control", "control", "control", "control",
+                              
+                              "DF","DHF","DF","DF","DF","DF",
+                              "DF","DF","DF","DF","DF",
+                              
+                              "DF","DF","DF","DHF",
+                              
+                              "DF", "DHF","DF","DHF","DF","DF",
+                              "DF","SD","DHF","DF"),
 
-              "SRR12215051","SRR12215052","SRR12215053",
-              "SRR12215054","SRR12215055","SRR12215056",
-
-              "SRR11088622_Primary1_D1","SRR11088623_Primary1_D3",
-              "SRR11088624_Primary2_D1","SRR11088625_Primary2_D5",
-              "SRR11088626_Primary3_D1","SRR11088627_Primary3_D2",
-
-              "SRR11088634_Secondary3_D0","SRR11088635_Secondary3_D1","SRR11088636_Secondary3_D5",
-
-              "SRR11088628_Secondary1_D0","SRR11088629_Secondary1_D1","SRR11088630_Secondary1_D7",
-              "SRR11088631_Secondary2_D1","SRR11088632_Secondary2_D1","SRR11088633_Secondary2_D5",
-
-              "SRR22739533","SRR22739534","SRR22739543","SRR22739544","SRR22739551","SRR22739552", 
-
-              "SRR22739530","SRR22739535","SRR22739536","SRR22739537","SRR22739539","SRR22739541",
-             "SRR22739545","SRR22739547","SRR22739549","SRR22739550","SRR22739555",
-
-             "SRR22739525","SRR22739527","SRR22739529","SRR22739538",
-
-             "SRR22739526","SRR22739528","SRR22739531","SRR22739532","SRR22739540","SRR22739542",
-             "SRR22739546","SRR22739548","SRR22739553","SRR22739554"),
-
-timepoint= c(  "control", "-1", "-1",  "-2",
-              "0", "0", "14",
-              "-1", "-1", "-2",
-              "0", "0", "14",
-
-              "-3", "-2","180",
-               "-5", "-4", "180",
-
-               "1", "3", "1", "5","1","2",
-
-               "0", "1", "5",
-
-              "0", "1", "7", "1", "1", "5",
-
-              "control",  "control", "control", "control", "control", "control",
-
-              "6", "6", "7", "7","3",
-              "4", "7", "2", "1", "1", "7",
-
-              "6","3", "3", "2",
-
-             "T", "5", "5", "5",
-             "5", "6", "T",  "4", "6", "5"), 
-
+  timepoint= c(  "control", "-1", "-1",  "-2",
+                 "0", "0", "14",
+                 "-1", "-1", "-2",
+                 "0", "0", "14",
+                 
+                 "-3", "-2","180",
+                 "-5", "-4", "180",
+                 
+                 "1", "3", "1", "5","1","2",
+                 
+                 "0", "1", "5",
+                 
+                 "0", "1", "7", "1", "1", "5",
+                 
+                 "control",  "control", "control", "control", "control", "control",
+                 
+                 "6", "6", "7", "7","3",
+                 "4", "7", "2", "1", "1", "7",
+                 
+                 "6","3", "3", "2",
+                 
+                 "T", "5", "5", "5",
+                 "5", "6", "T",  "4", "6", "5"), 
+  
   sex = c("female", 
           "male", "male", "male", 
           "male", 
@@ -130,81 +166,81 @@ timepoint= c(  "control", "-1", "-1",  "-2",
           
           "male", "male", "male", 
           "male", "male", "male",
-
-           "male", "male",
-           "male", "male",
-           "male", "male",
-           "female", "female", "female",
-            
-            "male", "male", "male",
-            "female", "female","female",
-
-            "male", "NONE" ,"male", "female","female", "male",
-            "female", "male", "female", "female", "male", "female", 
-            "female", "male", "male", "male", "male", 
-            "male", "male", "male", "female",
-            "female", "female", "female", "male", "male", "female",
-            "NONE", "female", "female", "male"),
-            
+          
+          "male", "male",
+          "male", "male",
+          "male", "male",
+          "female", "female", "female",
+          
+          "male", "male", "male",
+          "female", "female","female",
+          
+          "male", "NONE" ,"male", "female","female", "male",
+          "female", "male", "female", "female", "male", "female", 
+          "female", "male", "male", "male", "male", 
+          "male", "male", "male", "female",
+          "female", "female", "female", "male", "male", "female",
+          "NONE", "female", "female", "male"),
+  
   group = c("control", 
-           "acute", "acute", "acute", 
-           "defervescence", "defervescence", 
-           "convalescent",
             "acute", "acute", "acute", 
             "defervescence", "defervescence", 
             "convalescent",
-
+            "acute", "acute", "acute", 
+            "defervescence", "defervescence", 
+            "convalescent",
+            
             "acute", "acute", "acute",
             "acute", "acute", "acute",
-
+            
             "acute", "post-defervescence",
             "acute", "post-defervescence",
             "acute", "post-defervescence",
-
+            
             "defervescence", "post-defervescence", "post-defervescence",
-
+            
             "defervescence", "post-defervescence", "post-defervescence",
             "post-defervescence", "post-defervescence", "post-defervescence",
-
+            
             "control", "control", "control", "control", "control", "control",
-
+            
             "acute", "acute", "acute", "acute", "acute", "acute",
             "acute", "acute", "acute", "acute", "acute",
-
+            
             "acute", "acute", "acute", "acute",
-
+            
             "acute", "acute", "acute", "acute", "acute", "acute",
             "acute", "acute", "acute", "acute"),
-
+  
   infection = c("control", 
-              "PRIMARY", "PRIMARY", "PRIMARY", 
-              "PRIMARY", "PRIMARY", 
-              "PRIMARY",
-               "PRIMARY", "PRIMARY", "PRIMARY", 
-               "PRIMARY", "PRIMARY", 
-               "PRIMARY",
-
-               "PRIMARY", "PRIMARY", "PRIMARY", 
-               "PRIMARY", "PRIMARY", "PRIMARY",
-
-               "PRIMARY", "PRIMARY",
-              "PRIMARY", "PRIMARY",
-              "PRIMARY", "PRIMARY",
-
-              "SECUNDARY", "SECONDARY", "SECONDARY",
-
-              "SECUNDARY", "SECUNDARY", "SECUNDARY",
-              "SECUNDARY", "SECUNDARY", "SECUNDARY",
-
-              "control", "control", "control", "control", "control", "control",
-
-              "SECUNDARY","SECUNDARY", "SECUNDARY", "SECUNDARY", "PRIMARY", "indeterminate",
-              "SECUNDARY", "PRIMARY", "SECUNDARY", "SECUNDARY", "SECUNDARY", 
-
-              "PRIMARY", "equiv", "PRIMARY", "PRIMARY",
-
-              "PRIMARY", "SECUNDARY", "PRIMARY", "SECUNDARY", "SECUNDARY", "SECUNDARY",
-              "NONE", "SECUNDARY", "SECUNDARY","SECUNDARY")
+                "PRIMARY", "PRIMARY", "PRIMARY", 
+                "PRIMARY", "PRIMARY", 
+                "PRIMARY",
+                "PRIMARY", "PRIMARY", "PRIMARY", 
+                "PRIMARY", "PRIMARY", 
+                "PRIMARY",
+                
+                "PRIMARY", "PRIMARY", "PRIMARY", 
+                "PRIMARY", "PRIMARY", "PRIMARY",
+                
+                "PRIMARY", "PRIMARY",
+                "PRIMARY", "PRIMARY",
+                "PRIMARY", "PRIMARY",
+                
+                "SECUNDARY", "SECUNDARY", "SECUNDARY",
+                
+                "SECUNDARY", "SECUNDARY", "SECUNDARY",
+                "SECUNDARY", "SECUNDARY", "SECUNDARY",
+                
+                "control", "control", "control", "control", "control", "control",
+                
+                "SECUNDARY","SECUNDARY", "SECUNDARY", "SECUNDARY", "PRIMARY", "indeterminate",
+                "SECUNDARY", "PRIMARY", "SECUNDARY", "SECUNDARY", "SECUNDARY", 
+                
+                "PRIMARY", "equiv", "PRIMARY", "PRIMARY",
+                
+                "PRIMARY", "SECUNDARY", "PRIMARY", "SECUNDARY", "SECUNDARY", "SECUNDARY",
+                "NONE", "SECUNDARY", "SECUNDARY","SECUNDARY")
 )
 
 
@@ -258,6 +294,9 @@ seurat_integrado@meta.data <- seurat_integrado@meta.data %>%
 
 DimPlot(seurat_integrado, reduction = "umap", group.by = "virus", label = TRUE) +
   ggtitle("UMAP por Sorotipo Viral")
+
+DimPlot(seurat_integrado, reduction = "umap", group.by = "dengue_classification", label = TRUE) +
+  ggtitle("UMAP por Classificação Dengue")
 
 DimPlot(seurat_integrado, reduction = "umap", group.by = "age", label = TRUE) +
   ggtitle("UMAP por idade")
