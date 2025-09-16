@@ -130,7 +130,7 @@ metadata_samples <- data.frame(
                               "DF","DF","DF","DHF",
                               
                               "DF", "DHF","DF","DHF","DF","DF",
-                              "DF","SD","DHF","DF"),
+                              "DF","DHF","DHF","DF"),
 
   timepoint= c(  "control", "-1", "-1",  "-2",
                  "0", "0", "14",
@@ -243,6 +243,7 @@ metadata_samples <- data.frame(
                 "NONE", "SECUNDARY", "SECUNDARY","SECUNDARY")
 )
 
+table(seurat_integrado$orig.ident %in% metadata_samples$sample_id)
 
 
 metadata_samples$timepoint_numeric <- suppressWarnings(as.numeric(metadata_samples$timepoint))
@@ -256,31 +257,21 @@ for (i in seq_len(nrow(metadata_samples))) {
 }
 
 
-# Inicializar lista para armazenar os metadados expandidos
-metadados_expandidos <- list()
+# Cria um data frame com os metadados do Seurat
+seurat_meta <- seurat_integrado@meta.data
+seurat_meta$cell_id <- rownames(seurat_meta)
 
-# Loop por cada entrada em amostras_por_arquivo
-for (nome_arquivo in names(amostras_por_arquivo)) {
-  amostras <- amostras_por_arquivo[[nome_arquivo]]
-  
-  # Buscar os metadados correspondentes
-  metadado <- metadata_denv[metadata_denv$sample_id == nome_arquivo, ]
-  
-  # Criar data.frame para cada amostra individual
-  df <- data.frame(
-    sample_id = amostras,
-    arquivo = nome_arquivo,
-    age = metadado$age,
-    virus = metadado$virus,
-    stringsAsFactors = FALSE
-  )
-  
-  # Adicionar à lista
-  metadados_expandidos[[nome_arquivo]] <- df
-}
+# Junta com os metadados externos
+merged_meta <- left_join(
+  seurat_meta,
+  metadata_samples,
+  by = c("orig.ident" = "sample_id")
+)
 
-# Unir tudo em um único data.frame
-metadata_final <- do.call(rbind, metadados_expandidos)
+# Atualiza o meta.data do Seurat
+rownames(merged_meta) <- merged_meta$cell_id
+merged_meta$cell_id <- NULL
+seurat_integrado@meta.data <- merged_meta
 
 
 library(dplyr)
