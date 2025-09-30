@@ -1,6 +1,6 @@
 library(dplyr)
 library(Matrix)
-BiocManager::install("DESeq2")
+#BiocManager::install("DESeq2")
 library(DESeq2)
 library(ggplot2)
 library(pheatmap)
@@ -10,9 +10,10 @@ library(biomaRt)
 library(Seurat)
 
 # --- Pipeline ---
-
+setwd("~/denv")
 seurat_integrado <- readRDS("RDS/sct_harmony_merged.rds")
 table(seurat_integrado$SCT_snn_res.0.2)
+seurat_integrado$SCT_snn_res.0.2
 
 cluster_names <- c(
   "0" = "NK cell",
@@ -108,19 +109,19 @@ resdhf_df$gene <- rownames(resdhf_df)
 
 # --- 6. Filtrar genes significativos ---
 # --- dengue: DF vs DHF ---
-res_df$significant <- "No_significative" 
+res_df$significant <- "NS" 
 res_df$significant[res_df$padj <= 0.05 & abs(res_df$log2FoldChange) >= 1]  <- "Up"
-res_df$significant[res_df$padj <= 0.05 & abs(res_df$log2FoldChange) <= -1]   <- "Down"
+res_df$significant[res_df$padj <= 0.05 & res_df$log2FoldChange <= -1] <- "Down"
 
 # --- DF vs control ---
-resdf_df$significant <- "No_significative" 
+resdf_df$significant <- "NS" 
 resdf_df$significant[resdf_df$padj <= 0.05 & abs(resdf_df$log2FoldChange) >= 1]  <- "Up"
-resdf_df$significant[resdf_df$padj <= 0.05 & abs(resdf_df$log2FoldChange) <= -1]   <- "Down"
+resdf_df$significant[resdf_df$padj <= 0.05 & resdf_df$log2FoldChange <= -1] <- "Down"
 
 # --- DHF vs control ---
-resdhf_df$significant <- "No_significative" 
+resdhf_df$significant <- "NS" 
 resdhf_df$significant[resdhf_df$padj <= 0.05 & abs(resdhf_df$log2FoldChange) >= 1]  <- "Up"
-resdhf_df$significant[resdhf_df$padj <= 0.05 & abs(resdhf_df$log2FoldChange) <= -1]   <- "Down"
+resdhf_df$significant[resdhf_df$padj <= 0.05 & resdhf_df$log2FoldChange <= -1] <- "Down"
 
 # --- Salvar resultados---
 dir.create("DEG_results/monocytes", recursive = TRUE)
@@ -130,28 +131,46 @@ write.csv(resdhf_df, "DEG_results/monocytes/DhF_control.csv", row.names = FALSE)
 
 # --- Visualizações ---
 # Volcano plot
-volcano_DF_DHF <- ggplot(res_df, aes(x = log2FoldChange, y = -log10(padj), color = significant, label = label)) +
-  geom_point(size = 2, alpha = 0.7) + geom_text_repel(max.overlaps = Inf, size = 3) +
-  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") + geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
+volcano_DF_DHF <- ggplot(res_df, aes(x = log2FoldChange, y = -log10(padj), color = significant)) +
+  geom_point(size = 2, alpha = 0.7) + 
+  geom_text_repel(data = subset(res_df, significant %in% c("Up", "Down")),
+    aes(label = gene),
+    max.overlaps = Inf,
+    size = 3 ) +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
   scale_color_manual(values = c("Up" = "#a50f15", "Down" = "#225ea8", "No_significative" = "gray")) +
-  theme_minimal() + labs(title = "Volcano Plot: DF vs DHF (Monocytes)", x = "log2 Fold Change", y = "-log10 FDR")
+  theme_bw() +
+  labs(title = "Volcano Plot: DF vs DHF (Monocytes)",
+      x = "log2 Fold Change",
+      y = expression(-log[10](FDR)))
+  
 
-
-volcano_DF_control <- ggplot(resdf_df, aes(x = log2FoldChange, y = -log10(padj), color = significant, label = label)) +
-  geom_point(size = 2, alpha = 0.7) + geom_text_repel(max.overlaps = Inf, size = 3) +
-  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") + geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
+volcano_DF_control <- ggplot(resdf_df, aes(x = log2FoldChange, y = -log10(padj), color = significant)) +
+  geom_point(size = 2, alpha = 0.7) + 
+  geom_text_repel(data = subset(res_df, significant %in% c("Up", "Down")),
+                  aes(label = gene),
+                  max.overlaps = Inf,
+                  size = 3 ) +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
   scale_color_manual(values = c("Up" = "#a50f15", "Down" = "#225ea8", "No_significative" = "gray")) +
-  theme_minimal() + labs(title = "Volcano Plot: DF vs Control (Monocytes)", x = "log2 Fold Change", y = "-log10 FDR")
+  theme_bw() + labs(title = "Volcano Plot: DF vs Control (Monocytes)", x = "log2 Fold Change", y = "-log10 FDR")
 
 
-volcano_DHF_control <- ggplot(resdhf_df, aes(x = log2FoldChange, y = -log10(padj), color = significant, label = label)) +
-  geom_point(size = 2, alpha = 0.7) + geom_text_repel(max.overlaps = Inf, size = 3) +
-  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") + geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
+volcano_DHF_control <- ggplot(resdhf_df, aes(x = log2FoldChange, y = -log10(padj), color = significant)) +
+  geom_point(size = 2, alpha = 0.7) + 
+  geom_text_repel(data = subset(res_df, significant %in% c("Up", "Down")),
+                  aes(label = gene),
+                  max.overlaps = Inf,
+                  size = 3 ) +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
   scale_color_manual(values = c("Up" = "#a50f15", "Down" = "#225ea8", "No_significative" = "gray")) +
-  theme_minimal() + labs(title = "Volcano Plot: DF vs Control (Monocytes)", x = "log2 Fold Change", y = "-log10 FDR")
+  theme_bw() + labs(title = "Volcano Plot: DHF vs Control (Monocytes)", x = "log2 Fold Change", y = "-log10 FDR")
 
 # --- salvar os plots
-dir.create("DENV/DEG_results/monocytes/plots", recursive = TRUE)
+dir.create("DEG_results/monocytes/plots", recursive = TRUE)
 ggsave(volcano_DF_DHF, "DEG_results/monocytes/plots/volcano_DF_DHF.png", width = 8, height = 6)
 ggsave(volcano_DF_control, "DEG_results/monocytes/plots/volcano_DF_control.png", width = 8, height = 6)
 ggsave(volcano_DHF_control, "DEG_results/monocytes/plots/volcano_DHF_control.png", width = 8, height = 6)
