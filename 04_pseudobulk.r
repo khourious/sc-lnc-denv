@@ -68,12 +68,11 @@ pseudobulk_counts <- sapply(cells_by_sample, function(cells) {
 })
 
 # Construir metadados por amostra
-sample_meta <- meta_mono %>% #dplyr
-  filter(orig.ident %in% colnames(pseudobulk_counts)) %>% #filtrar só as amostras que estão no pseudobulk
-  group_by(orig.ident) %>% #agrupar por amostra
-  summarise(dengue_classification = unique(dengue_classification)) %>% #pegar a classificação única por amostra
-  ungroup() %>% #desagrupar
-  as.data.frame() #transforma em data.frame
+sample_meta <- meta_mono %>%
+  filter(orig.ident %in% colnames(pseudobulk_counts)) %>%
+  distinct(orig.ident, dengue_classification) %>%
+  as.data.frame()
+
 
 # Garantir que as colunas de pseudobulk_counts e sample_meta estejam na mesma ordem
 rownames(sample_meta) <- sample_meta$orig.ident #definir rownames
