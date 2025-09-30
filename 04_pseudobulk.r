@@ -5,6 +5,9 @@ library(DESeq2)
 library(ggplot2)
 library(pheatmap)
 library(ggrepel)
+library(plyr)
+library(biomaRt)
+library(Seurat)
 
 # --- Pipeline ---
 
@@ -40,13 +43,15 @@ DimPlot(seurat_integrado, group.by = "cell_type", label = TRUE) + ggtitle("Anota
 
 write.csv(seurat_integrado@meta.data, "metadata_cluster_anotado.csv")
 
+saveRDS(seurat_integrado, file = "RDS/sct_harmony_merged.rds")
+
 # --- 1. Extrair metadados
 
 meta <- seurat_integrado@meta.data
 meta$cell_id <- rownames(meta)
 
 # --- 2. Counts
-DefaultAssay(seurat_integrado) <- "RNA"
+DefaultAssay(seurat_integrado) <- "SCT"
 counts <- GetAssayData(seurat_integrado, layer = "counts")
 
 # --- 3. Escolher tipo celular: monócitos
