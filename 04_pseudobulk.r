@@ -124,53 +124,63 @@ resdhf_df$significant[resdhf_df$padj <= 0.05 & abs(resdhf_df$log2FoldChange) >= 
 resdhf_df$significant[resdhf_df$padj <= 0.05 & resdhf_df$log2FoldChange <= -1] <- "Down"
 
 # --- Salvar resultados---
-dir.create("DEG_results/monocytes", recursive = TRUE)
+dir.create("DEG_results/monocytes/plots", recursive = TRUE)
 write.csv(res_df, "DEG_results/monocytes/DF_DHF.csv", row.names = FALSE)
 write.csv(resdf_df, "DEG_results/monocytes/DF_control.csv", row.names = FALSE)
 write.csv(resdhf_df, "DEG_results/monocytes/DhF_control.csv", row.names = FALSE)
 
 # --- Visualizações ---
 # Volcano plot
-volcano_DF_DHF <- ggplot(res_df, aes(x = log2FoldChange, y = -log10(padj), color = significant)) +
-  geom_point(size = 2, alpha = 0.7) + 
-  geom_text_repel(data = subset(res_df, significant %in% c("Up", "Down")),
-    aes(label = gene),
-    max.overlaps = Inf,
-    size = 3 ) +
-  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") +
-  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
-  scale_color_manual(values = c("Up" = "#a50f15", "Down" = "#225ea8", "No_significative" = "gray")) +
-  theme_bw() +
-  labs(title = "Volcano Plot: DF vs DHF (Monocytes)",
-      x = "log2 Fold Change",
-      y = expression(-log[10](FDR)))
-  
-
-volcano_DF_control <- ggplot(resdf_df, aes(x = log2FoldChange, y = -log10(padj), color = significant)) +
-  geom_point(size = 2, alpha = 0.7) + 
-  geom_text_repel(data = subset(res_df, significant %in% c("Up", "Down")),
-                  aes(label = gene),
-                  max.overlaps = Inf,
-                  size = 3 ) +
-  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") +
-  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
-  scale_color_manual(values = c("Up" = "#a50f15", "Down" = "#225ea8", "No_significative" = "gray")) +
-  theme_bw() + labs(title = "Volcano Plot: DF vs Control (Monocytes)", x = "log2 Fold Change", y = "-log10 FDR")
+keyvals <- ifelse(res_df$log2FoldChange < -1 & res_df$padj <= 0.05 , 'royalblue',
+                  ifelse(res_df$log2FoldChange > 1 & res_df$padj <= 0.05, 'red', 'gray'))
+keyvals[is.na(keyvals)] <- 'black'
+names(keyvals)[keyvals == 'red'] <- 'Up Regulated'
+names(keyvals)[keyvals == 'gray'] <- 'No Significance'
+names(keyvals)[keyvals == 'royalblue'] <- 'Down Regulated'
+png("DEG_results/monocytes/plots/volcano_DF_DHF.png", width=3000, height=2500, units="px", pointsize=20, bg="white",res=300)
+EnhancedVolcano(res_df, 
+                lab=rownames(res_df),title = 'DF vs DHF (Monocytes)', 
+                subtitle = ".", x='log2FoldChange', y='padj', pCutoff=0.05, 
+                FCcutoff=1, pointSize = 3.0, labSize = 4.0, 
+                colCustom = keyvals, xlim = c(-3, 3), ylim = c(0,5))  + theme(
+                  panel.grid.major = element_blank(),
+                  panel.grid.minor = element_blank()
+                )
+dev.off()
 
 
-volcano_DHF_control <- ggplot(resdhf_df, aes(x = log2FoldChange, y = -log10(padj), color = significant)) +
-  geom_point(size = 2, alpha = 0.7) + 
-  geom_text_repel(data = subset(res_df, significant %in% c("Up", "Down")),
-                  aes(label = gene),
-                  max.overlaps = Inf,
-                  size = 3 ) +
-  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") +
-  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
-  scale_color_manual(values = c("Up" = "#a50f15", "Down" = "#225ea8", "No_significative" = "gray")) +
-  theme_bw() + labs(title = "Volcano Plot: DHF vs Control (Monocytes)", x = "log2 Fold Change", y = "-log10 FDR")
 
-# --- salvar os plots
-dir.create("DEG_results/monocytes/plots", recursive = TRUE)
-ggsave(volcano_DF_DHF, "DEG_results/monocytes/plots/volcano_DF_DHF.png", width = 8, height = 6)
-ggsave(volcano_DF_control, "DEG_results/monocytes/plots/volcano_DF_control.png", width = 8, height = 6)
-ggsave(volcano_DHF_control, "DEG_results/monocytes/plots/volcano_DHF_control.png", width = 8, height = 6)
+keyvals <- ifelse(resdf_df$log2FoldChange < -2 & resdf_df$padj <= 0.05 , 'royalblue',
+                  ifelse(resdf_df$log2FoldChange > 2 & resdf_df$padj <= 0.05, 'red', 'gray'))
+keyvals[is.na(keyvals)] <- 'black'
+names(keyvals)[keyvals == 'red'] <- 'Up Regulated'
+names(keyvals)[keyvals == 'gray'] <- 'No Significance'
+names(keyvals)[keyvals == 'royalblue'] <- 'Down Regulated'
+png("DEG_results/monocytes/plots/volcano_DF_control.png", width=3000, height=2500, units="px", pointsize=20, bg="white",res=300)
+EnhancedVolcano(resdf_df, 
+                lab=rownames(resdf_df),title = 'DF vs Control (Monocytes)', 
+                subtitle = ".", x='log2FoldChange', y='padj', pCutoff=0.05, 
+                FCcutoff=2, pointSize = 3.0, labSize = 4.0, 
+                colCustom = keyvals, xlim = c(-8, 8), ylim = c(0,15))  + theme(
+                  panel.grid.major = element_blank(),
+                  panel.grid.minor = element_blank()
+                )
+dev.off()
+
+
+keyvals <- ifelse(resdhf_df$log2FoldChange < -2 & resdhf_df$padj <= 0.05 , 'royalblue',
+                  ifelse(resdhf_df$log2FoldChange > 2 & resdhf_df$padj <= 0.05, 'red', 'gray'))
+keyvals[is.na(keyvals)] <- 'black'
+names(keyvals)[keyvals == 'red'] <- 'Up Regulated'
+names(keyvals)[keyvals == 'gray'] <- 'No Significance'
+names(keyvals)[keyvals == 'royalblue'] <- 'Down Regulated'
+png("DEG_results/monocytes/plots/volcano_DHF_control.png", width=3000, height=2500, units="px", pointsize=20, bg="white",res=300)
+EnhancedVolcano(resdhf_df, 
+                lab=rownames(resdhf_df),title = 'DHF vs Control (Monocytes)', 
+                subtitle = ".", x='log2FoldChange', y='padj', pCutoff=0.05, 
+                FCcutoff=2, pointSize = 3.0, labSize = 4.0, 
+                colCustom = keyvals , xlim = c(-8, 8), ylim = c(0,15)) + theme(
+                  panel.grid.major = element_blank(),
+                  panel.grid.minor = element_blank()
+                )
+dev.off()
