@@ -1,0 +1,107 @@
+library(dplyr)
+library(Matrix)
+#BiocManager::install("DESeq2")
+#BiocManager::install("EnhancedVolcano")
+library(DESeq2)
+library(ggplot2)
+library(pheatmap)
+library(ggrepel)
+library(plyr)
+library(biomaRt)
+library(Seurat)
+library(EnhancedVolcano)
+
+# --- Pipeline ---
+setwd("~/denv")
+seurat_integrado <- readRDS("RDS/sct_harmony_merged.rds")
+table(seurat_integrado$SCT_snn_res.0.2)
+seurat_integrado$SCT_snn_res.0.2
+seurat_integrado$cell_type
+
+cluster_names <- c(
+  "0" = "NK cell",
+  "1" = "T Cell CD4+",
+  "2" = "B cell",
+  "3" = "Plasmablast",
+  "4" = "Monocyte",
+  "5" = "T Cell CD4+",
+  "6" = "T Cell CD8+",
+  "7" = "T Cell CD8+",
+  "8" = "T Cell CD8+",
+  "9" = "Plasmablast",
+  "10" = "B cell",
+  "11" = "Dendritic Cell",
+  "12" = "Plasma Cell",
+  "13" = "Platelets",
+  "14" = "Red Cell"
+)
+
+
+seurat_integrado$cell_type <- mapvalues(
+  seurat_integrado$SCT_snn_res.0.2,
+  from = names(cluster_names),
+  to = cluster_names
+)
+
+DimPlot(seurat_integrado, group.by = "cell_type", label = TRUE) + ggtitle("Anotação Manual dos Clusters")
+
+write.csv(seurat_integrado@meta.data, "metadata_cluster_anotado.csv")
+
+saveRDS(seurat_integrado, file = "RDS/sct_harmony_merged.rds")
+
+# loop para os tipos celulares
+meta <- seurat_integrado@meta.data
+meta$cell_id <- rownames(meta)
+
+# Lista de tipos celulares
+tipos_celulares <- unique(meta$cell_type)
+
+# Lista para guardar os pseudobulks
+pseudobulk_lista <- list()
+metadata_lista <- list()
+
+for (tipo in tipos_celulares) {
+  message("Processando tipo celular: ", tipo)
+  
+  # Filtra células do tipo atual
+  meta_tipo <- meta[meta$cell_type == tipo, ]
+  
+  # Agrupa células por amostra
+  cells_by_sample <- split(meta_tipo$cell_id, meta_tipo$orig.ident)
+  
+  # Gera pseudobulk
+  pseudobulk_counts <- sapply(cells_by_sample, function(cells) {
+    rowSums(counts[, cells, drop = FALSE])
+  })
+  
+  # Cria metadados por amostra
+  sample_meta <- meta_tipo %>%
+    filter(orig.ident %in% colnames(pseudobulk_counts)) %>%
+    group_by(orig.ident) %>%
+    summarise(
+      dengue_classification = unique(dengue_classification),
+      age = unique(age),
+      virus = unique(virus),
+      sex = unique(sex),
+      group = unique(group),
+      infection = unique(infection),
+      dataset = unique(dataset),
+      timepoint = unique(timepoint),
+      disease = unique(disease)
+    ) %>%
+    ungroup() %>%
+    as.data.frame()
+  
+  rownames(sample_meta) <- sample_meta$orig.ident
+  sample_meta <- sample_meta[colnames(pseudobulk_counts), , drop = FALSE]
+  
+  # Salva na lista
+  pseudobulk_lista[[tipo]] <- pseudobulk_counts
+  metadata_lista[[tipo]] <- sample_meta
+}
+
+for (tipo in names(pseudobulk_lista)) {
+  write.csv(pseudobulk_lista[[tipo]], file = paste0("pseudobulk_", tipo, ".csv"))
+  write.csv(metadata_lista[[tipo]], file = paste0("metadata_", tipo, ".csv"))
+}
+
