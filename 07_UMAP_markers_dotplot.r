@@ -33,7 +33,20 @@ DimPlot(seurat_obj, reduction = "umap", group.by = "cell_type",
   theme_void(base_size = 14) +
   theme(legend.position = "right", legend.title = element_blank())
 
+# Calcular centroide de cada grupo 
+centroids <- umap_df %>% group_by(cell_type) %>% 
+summarise(UMAP_1 = median(UMAP_1), UMAP_2 = median(UMAP_2)) 
 
+# Plot UMAP com pontos + labels externos com setas 
+ggplot(umap_df, aes(x = UMAP_1, y = UMAP_2, color = cell_type)) + 
+geom_point(size = 0.4, alpha = 0.7) + 
+scale_color_manual(values = cluster_colors) + 
+theme_void(base_size = 14) + 
+theme(legend.position = "none") + 
+geom_label_repel(data = centroids, aes(x = UMAP_1, y = UMAP_2, label = cell_type, color = cell_type), 
+                 box.padding = 0.5, point.padding = 0.5, 
+                 segment.color = "grey30", segment.size = 0.4, size = 5, 
+                 fontface = "bold")
 
 # --- marcadores
 
