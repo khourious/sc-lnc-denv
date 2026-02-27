@@ -2,8 +2,12 @@ BiocManager::install("scDblFinder", force = T)
 install.packages("ggplot2")
 install.packages("dplyr")
 install.packages("cluster")
-install.packages("igraph")
+install.packages("harmony")
 install.packages("devtools")
+install.packages("hdf5r")
+install.packages("SeuratDisk")
+BiocManager::install("glmGamPoi")
+
 devtools::install_github("immunogenomics/LISI")
 
 # Carregar pacotes
@@ -11,10 +15,14 @@ library(igraph)
 library(lisi)
 library(scDblFinder)
 library(Seurat)
+library(hdf5r)
 library(harmony)
 library(ggplot2)
 library(dplyr)
 library(cluster)
+library(patchwork)
+library(glmGamPoi)
+
 
 setwd("~/denv")
 
@@ -35,7 +43,7 @@ arquivos_h5 <- list(
 
 # --- barcode DENV ---
 amostras_por_arquivo <- list(
-  dt1_control = "Healthy_Control_run1",
+  #dt1_control = "Healthy_Control_run1",
   dt1_DF = c("DF_Day_minus_1_run1","DF_Day_minus_1_run2","DF_Day_minus_2_run1","DF_Def_run1",
              "DF_Def_run2","DF_Wk2_run1"),
   dt1_DHF = c("DHF_Day_minus_1_run1","DHF_Day_minus_1_run2","DHF_Day_minus_2_run1",
@@ -55,9 +63,10 @@ amostras_por_arquivo <- list(
              "SRR22739546","SRR22739548","SRR22739553","SRR22739554")
 )
 
+
 # --- limiar mt
 limiares_mt <- list(
-  "Healthy_Control_run1"= 10,
+  #"Healthy_Control_run1"= 10,
   "DF_Day_minus_1_run1"= 10,
   "DF_Day_minus_1_run2"= 10,
   "DF_Day_minus_2_run1"= 10,
@@ -123,85 +132,6 @@ limiares_mt <- list(
   "SRR22739553"= 10,
   "SRR22739554"= 10
   )
-## --- Função para processar amostras ---
-processar_amostras <- function(arquivos_h5, amostras_por_arquivo, limiares_mt) {
-  objs <- list()
-  resumo_doublets <- data.frame(
-    amostra = character(),
-    singlets = integer(),
-    doublets = integer(),
-    stringsAsFactors = FALSE
-  )
-  
-  for (nome in names(arquivos_h5)) {
-    counts <- Read10X_h5(arquivos_h5[[nome]])
-    total <- ncol(counts)
-    amostras <- amostras_por_arquivo[[nome]]
-    n <- length(amostras)
-    por_amostra <- floor(total / n)
-    
-    for (i in seq_along(amostras)) {
-      ini <- (i - 1) * por_amostra + 1
-      fim <- if (i == n) total else i * por_amostra
-      barcodes <- colnames(counts)[ini:fim]
-      sub <- counts[, barcodes]
-      colnames(sub) <- paste0(amostras[i], "_", barcodes)
-      
-      seu <- CreateSeuratObject(sub, project = amostras[i])
-      seu$orig.ident <- amostras[i]
-      
-      # Calcular percent.mt
-      seu[["percent.mt"]] <- PercentageFeatureSet(seu, pattern = "^MT-")
-      
-      # Filtrar por limiar de percent.mt
-      if (amostras[i] %in% names(limiares_mt)) {
-        limiar <- limiares_mt[[amostras[i]]]
-        seu <- subset(seu, subset = percent.mt < limiar)
-        message("🧹 ", amostras[i], ": filtrado com percent.mt <", limiar)
-      }
-      
-      # Identificar doublets
-      sce <- as.SingleCellExperiment(seu)
-      sce <- scDblFinder(sce)
-      
-      # Contar singlets e doublets
-      tab <- table(sce$scDblFinder.class)
-      singlets <- tab["singlet"]
-      doublets <- tab["doublet"]
-      resumo_doublets <- rbind(resumo_doublets, data.frame(
-        amostra = amostras[i],
-        singlets = ifelse(is.na(singlets), 0, singlets),
-        doublets = ifelse(is.na(doublets), 0, doublets)
-      ))
-      
-      seu <- seu[, sce$scDblFinder.class == "singlet"]
-      
-      # Filtro de qualidade celular
-      lim_nFeature <- quantile(seu$nFeature_RNA, 0.75, na.rm = TRUE) + 1.5 * IQR(seu$nFeature_RNA, na.rm = TRUE)
-      lim_nCount <- quantile(seu$nCount_RNA, 0.75, na.rm = TRUE) + 1.5 * IQR(seu$nCount_RNA, na.rm = TRUE)
-      
-      seu$qualidade <- ifelse(
-        seu$nFeature_RNA <= lim_nFeature & seu$nCount_RNA <= lim_nCount,
-        "alta", "baixa"
-      )
-      
-      seu <- subset(seu, subset = qualidade == "alta")
-      message("✅ ", amostras[i], ": mantidas células de alta qualidade")
-      
-      objs[[amostras[i]]] <- seu
-    }
-  }
-  
-  # Salvar resumo como CSV (opcional)
-  write.csv(resumo_doublets, "resumo_doublets.csv", row.names = FALSE)
-  
-  return(list(objetos = objs, resumo = resumo_doublets))
-}
-
-
-# --- Leitura e pré-processamento ---
-seurat_list <- processar_amostras(arquivos_h5, amostras_por_arquivo, limiares_mt)
-
 ## --- Função para processar amostras ---
 processar_amostras <- function(arquivos_h5, amostras_por_arquivo, limiares_mt, metadata_samples, metadata_denv) {
   objs <- list()
@@ -272,32 +202,51 @@ processar_amostras <- function(arquivos_h5, amostras_por_arquivo, limiares_mt, m
   return(objs)
 }
 
+
+names(arquivos_h5)
+names(amostras_por_arquivo)
+
 # --- Leitura e pré-processamento ---
-seurat_list <- processar_amostras(arquivos_h5, amostras_por_arquivo, limiares_mt)
+seurat_list <- processar_amostras(
+  arquivos_h5 = arquivos_h5,
+  amostras_por_arquivo = amostras_por_arquivo,
+  limiares_mt = limiares_mt,
+  metadata_samples = metadata_samples,
+  metadata_denv = metadata_denv
+)
+
+
 
 ####### - PCA + Harmony
 # --- Normalização padrão ---
-seurat_list_norm <- lapply(seurat_list, NormalizeData)
-seurat_list_norm <- lapply(seurat_list_norm, FindVariableFeatures)
+seurat_list <- lapply(seurat_list, NormalizeData)
+seurat_list <- lapply(seurat_list, FindVariableFeatures)
+seurat_list <- lapply(seurat_list, ScaleData)
+seurat_list <- lapply(seurat_list, RunPCA)
 
-# --- Merge dos objetos ---
-merged_seurat <- merge(seurat_list_norm[[1]], y = seurat_list_norm[-1], add.cell.ids = names(seurat_list_norm))
+# --- Merge dos objetos para integração ---
+harmony_merged_pca <- merge(seurat_list[[1]], y = seurat_list[-1], add.cell.ids = names(seurat_list))
+harmony_merged_pca <- ScaleData(harmony_merged_pca, vars.to.regress = "percent.mt")
+harmony_merged_pca <- RunPCA(harmony_merged_pca)
 
-# --- Escalonamento e PCA ---
-merged_seurat <- ScaleData(merged_seurat)
-merged_seurat <- RunPCA(merged_seurat)
+# --- Harmony ----
 
-# --- Integração com Harmony ---
-harmony_merged_pca <- RunHarmony(merged_seurat, group.by.vars = "orig.ident")
+harmony_merged_pca <- RunHarmony(harmony_merged_pca,
+                                 "orig.ident",
+                                 "pca",
+                                 dims.use = 1:30)
 
-# --- clustering com Harmony embeddings
+
+
+# --- UMAP e clustering usando Harmony ----
+harmony_merged_pca <- RunUMAP(harmony_merged_pca, reduction = "harmony", dims = 1:30, n.neighbors = 50)
 harmony_merged_pca <- FindNeighbors(harmony_merged_pca, reduction = "harmony", dims = 1:30)
 harmony_merged_pca <- FindClusters(harmony_merged_pca, resolution = 0.5)
+
 
 harmony_merged_pca@meta.data
 
 # --- Visualizar UMAP com clusters
-harmony_merged_pca <- RunUMAP(harmony_merged_pca, reduction = "harmony", dims = 1:30)
 DimPlot(harmony_merged_pca, reduction = "umap", group.by = "seurat_clusters", label = TRUE)
 DimPlot(harmony_merged_pca, reduction = "umap", group.by = "orig.ident", label = FALSE)
 
@@ -306,20 +255,21 @@ harmony_merged_pca <- JoinLayers(harmony_merged_pca)
 markers <- FindAllMarkers(harmony_merged_pca, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
 
 # --- Salvar objeto final
-saveRDS(harmony_merged_pca, file = "harmony_merged_pca.rds")
-write.csv(markers, file = "harmony_pca_markers.csv", row.names = FALSE)
+saveRDS(harmony_merged_pca, file = "harmony_merged_pca_novo.rds")
+write.csv(markers, file = "harmony_pca_markers_novo.csv", row.names = FALSE)
 
-
+metadata_denv
 ############
 # SCT + seurat 
 
 # --- Normalização com SCTransform por amostra ---
-seurat_list_sct <- lapply(seurat_list, function(obj) {
-  SCTransform(obj, vars.to.regress = "percent.mt", verbose = FALSE)
+seurat_list_sct  <- lapply(seurat_list, function(obj) {
+  SCTransform(obj, vars.to.regress = "percent.mt", verbose = TRUE)
 })
 
+
 # --- Integração com anchors ---
-features <- SelectIntegrationFeatures(seurat_list_sct, nfeatures = 3000)
+features <- SelectIntegrationFeatures(seurat_list_sct, nfeatures = 2000)
 seurat_list_sct <- PrepSCTIntegration(seurat_list_sct, anchor.features = features)
 
 # --- Anchors ---
@@ -329,26 +279,31 @@ anchors <- FindIntegrationAnchors(seurat_list_sct, normalization.method = "SCT",
 merged_sct_seurat <- IntegrateData(anchors, normalization.method = "SCT")
 
 # --- PCA + UMAP ---
-merged_sct_seurat<- RunPCA(merged_sct_seurat)
+merged_sct_seurat <- RunPCA(merged_sct_seurat)
 merged_sct_seurat <- RunUMAP(merged_sct_seurat, dims = 1:30)
 merged_sct_seurat <- FindNeighbors(merged_sct_seurat, dims = 1:30)
 
+
 # --- Visualizar UMAP com clusters
 DimPlot(merged_sct_seurat, reduction = "umap", group.by = "seurat_clusters", label = TRUE)
-DimPlot(merged_sct_seurat, reduction = "umap", group.by = "orig.ident", label = FALSE)
 
 # --- Identificar marcadores de cluster
 markers_sct_seurat <- FindAllMarkers(merged_sct_seurat, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
 
 # --- Salvar objeto final
-saveRDS(merged_sct_seurat, file = "sct_seurat_merged.rds")
+saveRDS(merged_sct_seurat, file = "merged_sct_seurat.rds")
 write.csv(markers_sct_seurat, file = "seurat_sct_markers.csv", row.names = FALSE)
+
 
 ############
 ######### sct + harmony
 
 # --- Merge após SCT ---
 merged_sct_harmony <- merge(seurat_list_sct[[1]], y = seurat_list_sct[-1], add.cell.ids = names(seurat_list_sct))
+DefaultAssay(merged_sct_harmony) <- "SCT"
+VariableFeatures(merged_sct_harmony)[1:20]   # mostra os top 20 genes variáveis
+
+
 
 # --- PCA e Harmony ---
 merged_sct_harmony <- FindVariableFeatures(merged_sct_harmony)
@@ -386,21 +341,112 @@ DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "age")
 DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "sex") 
 DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "infection") 
 DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "dataset") 
-DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "SCT_snn_res.0.2") + ggtitle("Seurat Clusters - resolution = 0.2")
+DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "SCT_snn_res.0.2", label = TRUE) + ggtitle("Seurat Clusters - resolution = 0.2")
+
+# --- Identificar marcadores de cluster
+integrated_sct_harmony <- JoinLayers(integrated_sct_harmony)
+integrated_sct_harmony <- PrepSCTFindMarkers(integrated_sct_harmony)
+markers <- FindAllMarkers(integrated_sct_harmony, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
 
 # --- Visualização ---
 DimPlot(harmony_merged_pca, group.by = "orig.ident") + ggtitle("PCA + Harmony")
 DimPlot(merged_sct_seurat, group.by = "orig.ident") + ggtitle("SCT + Seurat")
 DimPlot(integrated_sct_harmony, group.by = "orig.ident") + ggtitle("SCT + Harmony")
+write.csv(markers , file = "sct_harmony_markers.csv", row.names = FALSE)
+saveRDS(integrated_sct_harmony, file = "sct_harmony_merged_novo.rds")
 
-saveRDS(integrated_sct_harmony, file = "sct_harmony_merged.rds")
 
 
-# Silhouette Score
+library(ggplot2)
+library(dplyr)
 
-sil_pca <- silhouette(as.numeric(Idents(merged_pca)), dist(Embeddings(merged_pca, "harmony")))
-sil_sct_seurat <- silhouette(as.numeric(Idents(merged_sct_seurat)), dist(Embeddings(merged_sct_seurat, "pca")))
-sil_sct_harmony <- silhouette(as.numeric(Idents(merged_sct_harmony)), dist(Embeddings(merged_sct_harmony, "harmony")))
+# Agrupar e contar células por timepoint
+df <- merged_sct_harmony@meta.data %>%
+  dplyr::count(timepoint)
 
-merged_sct_seurat <- FindClusters(merged_sct_seurat)
+# Converter timepoint para fator ordenado (se necessário)
+df$timepoint <- factor(df$timepoint, levels = sort(unique(df$timepoint)))
 
+# Criar gráfico de linha
+ggplot(df, aes(x = timepoint, y = n, group = 1)) +
+  geom_line(color = "#2C3E50", size = 1) +
+  geom_point(color = "#E74C3C", size = 2) +
+  theme_minimal() +
+  labs(
+    title = "Quantidade de células ao longo do tempo",
+    x = "Timepoint clínico",
+    y = "Número de células"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# Amostras com tempo relativo à defervescência
+amostras_defervescente <- unlist(amostras_por_arquivo[c("dt1_control", "dt1_DF", "dt1_DHF", "dt2_DF_1", "dt2_DF_2", "dt3_primary", "dt3_secundary")])
+
+# Amostras com tempo absoluto de febre
+amostras_febre_absoluta <- unlist(amostras_por_arquivo[c("dt4_control", "dt4_DF", "dt4_DWS", "dt4_SD")])
+
+library(ggplot2)
+library(dplyr)
+
+# Agrupar e contar células por timepoint
+df <- merged_sct_harmony@meta.data %>%
+  dplyr::count(timepoint)
+
+# Converter timepoint para fator ordenado (se necessário)
+df$timepoint <- factor(df$timepoint, levels = sort(unique(df$timepoint)))
+
+# Criar gráfico de linha
+ggplot(df, aes(x = timepoint, y = n, group = 1)) +
+  geom_line(color = "#2C3E50", size = 1) +
+  geom_point(color = "#E74C3C", size = 2) +
+  theme_minimal() +
+  labs(
+    title = "Quantidade de células ao longo do tempo",
+    x = "Timepoint clínico",
+    y = "Número de células"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# Amostras com tempo relativo à defervescência
+amostras_defervescente <- unlist(amostras_por_arquivo[c("dt1_control", "dt1_DF", "dt1_DHF", "dt2_DF_1", "dt2_DF_2", "dt3_primary", "dt3_secundary")])
+
+# Amostras com tempo absoluto de febre
+amostras_febre_absoluta <- unlist(amostras_por_arquivo[c("dt4_control", "dt4_DF", "dt4_DWS", "dt4_SD")])
+
+# Extrair metadados
+meta <-  merged_sct_harmony@meta.data
+
+# Defervescente
+df_def <- meta %>%
+  filter(orig.ident %in% amostras_defervescente) %>%
+  count(timepoint) %>%
+  mutate(timepoint = factor(timepoint, levels = c("control","-5","-4", "-3", "-2", "-1", "0", 
+                                                  "1", "2", "3", "5", "7", "14", "180"))) %>%
+  arrange(timepoint)
+
+
+# Febre absoluta
+df_febre <- meta %>%
+  filter(orig.ident %in% amostras_febre_absoluta) %>%
+  count(timepoint) %>%
+  mutate(timepoint = factor(timepoint, levels = c("control", "1", "2", "3", "4", "5", "6", "7", "T"))) %>%
+  arrange(timepoint)
+
+
+# Gráfico 1: tempo relativo à defervescência
+p1 <- ggplot(df_def, aes(x = timepoint, y = n ,group = 1)) +
+  geom_line(color = "#2C3E50", size = 1) +
+  geom_point(color = "#E74C3C", size = 2) +
+  theme_minimal() +
+  labs(title = "Células ao longo do tempo (defervescência)", x = "Dia relativo", y = "Número de células")
+
+# Gráfico 2: tempo absoluto de febre
+p2 <- ggplot(df_febre, aes(x = timepoint, y = n, group = 1)) +
+  geom_line(color = "#2C3E50", size = 1) +
+  geom_point(color = "#E74C3C", size = 2) +
+  theme_minimal() +
+  labs(title = "Células ao longo do tempo (dias de febre)", x = "Dia de febre", y = "Número de células")
+
+p1 + p2
