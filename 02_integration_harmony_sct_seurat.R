@@ -263,17 +263,33 @@ metadata_denv
 # SCT + seurat 
 
 # --- Normalização com SCTransform por amostra ---
-seurat_list_sct  <- lapply(seurat_list, function(obj) {
-  SCTransform(obj, vars.to.regress = "percent.mt", verbose = TRUE)
+# --- SCTransform por amostra ---
+seurat_list_sct <- lapply(seurat_list, function(obj) {
+  obj <- SCTransform(obj, vars.to.regress = "percent.mt", verbose = TRUE)
+  
+  # Split do assay RNA por orig.ident
+  obj[["RNA"]] <- split(obj[["RNA"]], f = obj$orig.ident)
+  
+  return(obj)
 })
 
+# --- Merge dos objetos SCT ---
+merged_sct <- merge(
+  x = seurat_list_sct[[1]],
+  y = seurat_list_sct[-1],
+  add.cell.ids = names(seurat_list_sct)
+)
 
-# --- Integração com anchors ---
-features <- SelectIntegrationFeatures(seurat_list_sct, nfeatures = 2000)
-seurat_list_sct <- PrepSCTIntegration(seurat_list_sct, anchor.features = features)
+# --- Definir assay ativo como SCT ---
+DefaultAssay(merged_sct) <- "SCT"
+merged_sct  <- NormalizeData(merged_sct)
+merged_sct  <- FindVariableFeatures(merged_sct)
+merged_sct  <- ScaleData(merged_sct)
+merged_sct  <- RunPCA(merged_sct)
 
-# --- Anchors ---
-anchors <- FindIntegrationAnchors(seurat_list_sct, normalization.method = "SCT", anchor.features = features)
+# --- Vizinhos e clusters ---
+merged_sct  <- FindNeighbors(merged_sct, dims = 1:30, reduction = "pca")
+merged_sct  <- FindClusters(merged_sct, resolution = 2, cluster.name = "unintegrated_clusters")
 
 # --- integração ---
 merged_sct_seurat <- IntegrateData(anchors, normalization.method = "SCT")
@@ -298,29 +314,37 @@ write.csv(markers_sct_seurat, file = "seurat_sct_markers.csv", row.names = FALSE
 ############
 ######### sct + harmony
 
-# --- Merge após SCT ---
-merged_sct_harmony <- merge(seurat_list_sct[[1]], y = seurat_list_sct[-1], add.cell.ids = names(seurat_list_sct))
-DefaultAssay(merged_sct_harmony) <- "SCT"
-VariableFeatures(merged_sct_harmony)[1:20]   # mostra os top 20 genes variáveis
+# --- Harmony ---
 
+merged_sct <- IntegrateLayers(
+  object = merged_sct, method = HarmonyIntegration,
+  orig.reduction = "pca", new.reduction = "harmony",
+  assay = "SCT",
+  verbose = FALSE
+)
 
+merged_sct <- FindNeighbors(merged_sct, reduction = "harmony", dims = 1:30)
+merged_sct <- FindClusters(merged_sct, resolution = 2, cluster.name = "harmony_clusters2")
 
-# --- PCA e Harmony ---
-merged_sct_harmony <- FindVariableFeatures(merged_sct_harmony)
-merged_sct_harmony <- RunPCA(merged_sct_harmony)
-merged_sct_harmony <- RunUMAP(merged_sct_harmony, dims = 1:30)
+merged_sct <- RunUMAP(merged_sct, reduction = "harmony", dims = 1:30, reduction.name = "umap.harmony")
+DimPlot(
+  merged_sct,
+  reduction = "umap.harmony",
+  group.by = c("orig.ident")
+)
 
+merged_sct_harmony <- merged_sct
 head(merged_sct_harmony@meta.data)
 # --- visulização não integrada ---
-DimPlot(merged_sct_harmony, reduction = "umap", group.by = "orig.ident")
-DimPlot(merged_sct_harmony, reduction = "umap", group.by = "group")
-DimPlot(merged_sct_harmony, reduction = "umap", group.by = "disease")
-DimPlot(merged_sct_harmony, reduction = "umap", group.by = "timepoint")
-DimPlot(merged_sct_harmony, reduction = "umap", group.by = "virus")
-DimPlot(merged_sct_harmony, reduction = "umap", group.by = "age")
-DimPlot(merged_sct_harmony, reduction = "umap", group.by = "sex") 
-DimPlot(merged_sct_harmony, reduction = "umap", group.by = "infection") 
-DimPlot(merged_sct_harmony, reduction = "umap", group.by = "dataset") 
+DimPlot(merged_sct_harmony, reduction = "umap.harmony", group.by = "orig.ident")
+DimPlot(merged_sct_harmony, reduction = "umap.harmony", group.by = "group")
+DimPlot(merged_sct_harmony, reduction = "umap.harmony", group.by = "disease")
+DimPlot(merged_sct_harmony, reduction = "umap.harmony", group.by = "timepoint")
+DimPlot(merged_sct_harmony, reduction = "umap.harmony", group.by = "virus")
+DimPlot(merged_sct_harmony, reduction = "umap.harmony", group.by = "age")
+DimPlot(merged_sct_harmony, reduction = "umap.harmony", group.by = "sex") 
+DimPlot(merged_sct_harmony, reduction = "umap.harmony", group.by = "infection") 
+DimPlot(merged_sct_harmony, reduction = "umap.harmony", group.by = "dataset") 
 
 # --- integração e UMAP ---
 integrated_sct_harmony <- RunHarmony(merged_sct_harmony, group.by.vars = "dataset")
