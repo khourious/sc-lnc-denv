@@ -28,9 +28,9 @@ setwd("~/denv")
 
 # --- lista DENV ---
 arquivos_h5 <- list(
-  dt1_control = "dataset1/denv_control/filtered_feature_bc_matrix.h5",
-  dt1_DF = "dataset1/denv_DF/filtered_feature_bc_matrix.h5",
-  dt1_DHF = "dataset1/denv_DHF/filtered_feature_bc_matrix.h5",
+ # dt1_control = "dataset1/denv_control/filtered_feature_bc_matrix.h5",
+ # dt1_DF = "dataset1/denv_DF/filtered_feature_bc_matrix.h5",
+ # dt1_DHF = "dataset1/denv_DHF/filtered_feature_bc_matrix.h5",
   dt2_DF_1  = "dataset2/denv_nat01/filtered_feature_bc_matrix.h5",
   dt2_DF_2 = "dataset2/denv_nat02/filtered_feature_bc_matrix.h5",
   dt3_primary = "dataset3/denv_primary/filtered_feature_bc_matrix.h5",
@@ -43,11 +43,11 @@ arquivos_h5 <- list(
 
 # --- barcode DENV ---
 amostras_por_arquivo <- list(
-  #dt1_control = "Healthy_Control_run1",
-  dt1_DF = c("DF_Day_minus_1_run1","DF_Day_minus_1_run2","DF_Day_minus_2_run1","DF_Def_run1",
-             "DF_Def_run2","DF_Wk2_run1"),
-  dt1_DHF = c("DHF_Day_minus_1_run1","DHF_Day_minus_1_run2","DHF_Day_minus_2_run1",
-              "DHF_Def_run1","DHF_Def_run2","DHF_Wk2_run1"),
+#  dt1_control = "Healthy_Control_run1",
+#  dt1_DF = c("DF_Day_minus_1_run1","DF_Day_minus_1_run2","DF_Day_minus_2_run1","DF_Def_run1",
+#             "DF_Def_run2","DF_Wk2_run1"),
+#  dt1_DHF = c("DHF_Day_minus_1_run1","DHF_Day_minus_1_run2","DHF_Day_minus_2_run1",
+#              "DHF_Def_run1","DHF_Def_run2","DHF_Wk2_run1"),
   dt2_DF_1  = c("SRR12215051","SRR12215052","SRR12215053"),
   dt2_DF_2 = c("SRR12215054","SRR12215055","SRR12215056"),
   dt3_primary = c("SRR11088622_Primary1_D1","SRR11088623_Primary1_D3","SRR11088624_Primary2_D1",
@@ -67,18 +67,18 @@ amostras_por_arquivo <- list(
 # --- limiar mt
 limiares_mt <- list(
   #"Healthy_Control_run1"= 10,
-  "DF_Day_minus_1_run1"= 10,
-  "DF_Day_minus_1_run2"= 10,
-  "DF_Day_minus_2_run1"= 10,
-  "DF_Def_run1"= 10,
-  "DF_Def_run2"= 10,
-  "DF_Wk2_run1"= 10,
-  "DHF_Day_minus_1_run1"= 10,
-  "DHF_Day_minus_1_run2"= 10,
-  "DHF_Day_minus_2_run1"= 10,
-  "DHF_Def_run1"= 10,
-  "DHF_Def_run2"= 10,
-  "DHF_Wk2_run1"= 10,
+  #"DF_Day_minus_1_run1"= 10,
+  #"DF_Day_minus_1_run2"= 10,
+  #"DF_Day_minus_2_run1"= 10,
+  #"DF_Def_run1"= 10,
+  #"DF_Def_run2"= 10,
+  #"DF_Wk2_run1"= 10,
+  #"DHF_Day_minus_1_run1"= 10,
+  #"DHF_Day_minus_1_run2"= 10,
+  #"DHF_Day_minus_2_run1"= 10,
+  #"DHF_Def_run1"= 10,
+  #"DHF_Def_run2"= 10,
+  #"DHF_Wk2_run1"= 10,
   "SRR12215051"= 10,
   "SRR12215052"= 10,
   "SRR12215053"= 10,
@@ -441,22 +441,6 @@ amostras_febre_absoluta <- unlist(amostras_por_arquivo[c("dt4_control", "dt4_DF"
 
 # Extrair metadados
 meta <-  merged_sct_harmony@meta.data
-
-# Defervescente
-df_def <- meta %>%
-  filter(orig.ident %in% amostras_defervescente) %>%
-  count(timepoint) %>%
-  mutate(timepoint = factor(timepoint, levels = c("control","-5","-4", "-3", "-2", "-1", "0", 
-                                                  "1", "2", "3", "5", "7", "14", "180"))) %>%
-  arrange(timepoint)
-
-
-# Febre absoluta
-df_febre <- meta %>%
-  filter(orig.ident %in% amostras_febre_absoluta) %>%
-  count(timepoint) %>%
-  mutate(timepoint = factor(timepoint, levels = c("control", "1", "2", "3", "4", "5", "6", "7", "T"))) %>%
-  arrange(timepoint)
 
 
 # Gráfico 1: tempo relativo à defervescência
