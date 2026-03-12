@@ -61,6 +61,28 @@ seurat_integrado$cell_type <- mapvalues(
 
 DimPlot(seurat_integrado, group.by = "cell_type", label = TRUE) + ggtitle("Anotação Manual dos Clusters")
 
+# --- Umaps ---
+DimPlot(integrated_sct_harmony, reduction = "umap", label = TRUE, pt.size = 0.5) +
+  theme_classic() +
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_blank(),
+    axis.title = element_blank(),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11, face = "bold"),
+    plot.title = element_text(size = 14, face = "bold")
+  ) +
+  ggtitle("PBMC cell types")
+
+DimPlot(integrated_sct_harmony, reduction = "umap", label = TRUE, pt.size = 0.5,
+        cols = c("darkred","red","orange","gold","darkblue","steelblue",
+                 "navy","green","lightgreen","purple","violet","pink",
+                 "brown","grey")) +
+  ggtitle("PBMC cell types")
+
+
 write.csv(seurat_integrado@meta.data, "metadata_cluster_anotado.csv")
 
 saveRDS(seurat_integrado, file = "RDS/sct_harmony_merged.rds")
