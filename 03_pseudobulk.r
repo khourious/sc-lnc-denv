@@ -12,8 +12,27 @@ library(Seurat)
 # --- Pipeline ---
 setwd("~/denv")
 seurat_integrado <- readRDS("RDS/sct_harmony_merged.rds")
-table(seurat_integrado$SCT_snn_res.0.2)
-seurat_integrado$SCT_snn_res.0.2
+table(seurat_integrado$SCT_snn_res.0.06)
+seurat_integrado$SCT_snn_res.0.06
+
+# --- identificando os clusters ----
+markers <- list(
+  NK = c("GNLY","NKG7","KLRD1","PRF1"),
+  T_CD4 = c("CD3D","CD3E","CD4","IL7R"),
+  T_CD8 = c("CD3D","CD3E","CD8A","CD8B","GZMB"),
+  Bcell = c("MS4A1","CD79A","CD79B"),
+  Plasmablast = c("MZB1","JCHAIN","IGKC","IGHG1"),
+  Monocyte_classical = c("CD14","LYZ","S100A8","S100A9"),
+  Monocyte_nonclassical = c("FCGR3A","MS4A7"),
+  RedCells = c("HBB","HBA1","HBA2"),
+  Platelets = c("PPBP","GP9","ITGA2B","TUBB1"),
+  Dendritic = c("FCER1A","CLEC10A","LILRA4","IL3RA","HLA-DRA")
+)
+
+DotPlot(integrated_sct_harmony, features = unlist(markers),
+        group.by = "seurat_clusters") + RotatedAxis()
+
+# --- Mudando o nome dos clusters ---
 
 cluster_names <- c(
   "0" = "NK cell",
