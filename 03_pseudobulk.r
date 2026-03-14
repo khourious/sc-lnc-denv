@@ -12,25 +12,94 @@ library(Seurat)
 # --- Pipeline ---
 setwd("~/denv")
 seurat_integrado <- readRDS("RDS/sct_harmony_merged.rds")
-table(seurat_integrado$SCT_snn_res.0.06)
-seurat_integrado$SCT_snn_res.0.06
+table(seurat_integrado$SCT_snn_res.0.3)
+seurat_integrado$SCT_snn_res.0.3
 
-# --- identificando os clusters ----
-markers <- list(
-  NK = c("GNLY","NKG7","KLRD1","PRF1"),
-  T_CD4 = c("CD3D","CD3E","CD4","IL7R"),
-  T_CD8 = c("CD3D","CD3E","CD8A","CD8B","GZMB"),
-  Bcell = c("MS4A1","CD79A","CD79B"),
-  Plasmablast = c("MZB1","JCHAIN","IGKC","IGHG1"),
-  Monocyte_classical = c("CD14","LYZ","S100A8","S100A9"),
-  Monocyte_nonclassical = c("FCGR3A","MS4A7"),
-  RedCells = c("HBB","HBA1","HBA2"),
-  Platelets = c("PPBP","GP9","ITGA2B","TUBB1"),
-  Dendritic = c("FCER1A","CLEC10A","LILRA4","IL3RA","HLA-DRA")
+Idents(seurat_integrado) <- seurat_integrado$SCT_snn_res.0.3
+
+DimPlot(
+  seurat_integrado,
+  reduction = "umap",
+  label = TRUE,        # coloca o número dentro do cluster
+  label.size = 6,      # tamanho da fonte
+  repel = TRUE         # evita sobreposição
 )
 
-DotPlot(integrated_sct_harmony, features = unlist(markers),
-        group.by = "seurat_clusters") + RotatedAxis()
+# --- identificando os clusters ----
+
+FeaturePlot(seurat_integrado, features = c("GNLY","NKG7","KLRD1","PRF1")) # NK
+FeaturePlot(seurat_integrado, features = c("CD3D","CD3E","CD4","IL7R")) # T CD4
+FeaturePlot(seurat_integrado, features = c("CD3D","CD3E","CD8A","CD8B","GZMB")) # T CD8
+FeaturePlot(seurat_integrado, features = c("MS4A1","CD79A","CD79B")) # B cell
+FeaturePlot(seurat_integrado, features = c("MZB1","JCHAIN","IGKC","IGHG1")) # Plasmablast
+FeaturePlot(seurat_integrado, features = c("CD14","LYZ","S100A8","S100A9")) # Monocyte classical
+FeaturePlot(seurat_integrado, features = c("FCGR3A","MS4A7")) # Monocyte non classical
+FeaturePlot(seurat_integrado, features = c("FCER1A","CLEC10A","LILRA4","IL3RA","HLA-DRA")) # Dendritic
+FeaturePlot(seurat_integrado, features = c("PPBP","GP9","ITGA2B","TUBB1")) # Platelets
+FeaturePlot(seurat_integrado, features = c("HBB","HBA1","HBA2")) # Red Cells
+            
+genes_markers_effector <- list(
+  TCell    = c("CD3E"),
+  T_naive  = c("IL7R","CCR7","SELL"),
+  T_memory = c("CD27"),
+  
+  T_CD4    = c("CD4", "STAT4","PRKCH","FYN","TOX","IFNG"),
+  T_CD8    = c("CD8A", "GZMB","PRF1","NKG7","GNLY","GZMK"),
+  
+   NK_classic      = c("KLRD1","KLRF1"),        
+  NK_proliferating= c("MKI67","TOP2A","PCNA","STMN1")
+)
+
+TCD4_markers <-list( 
+  TCD4_naive      = c("IL7R","CCR7","SELL"),
+  TCD4_memory     = c("CD27"),
+  TCD4_effector   = c("STAT4","PRKCH","FYN","TOX","IFNG")
+)
+
+TCD8_markers <-list(   
+  TCD8_naive      = c("IL7R","CCR7","SELL"), 
+  TCD8_memory     = c("CD27"),                   
+  TCD8_effector   = c("GZMB","PRF1","NKG7","GNLY"), 
+  TCD8_GZMK       = c("GZMK")
+)
+
+
+DotPlot(object   = seurat_integrado,
+        features = genes_markers_effector, 
+        group.by = "SCT_snn_res.0.3")
+
+DotPlot(object   = seurat_integrado,
+        features = TCD4_markers, 
+        group.by = "SCT_snn_res.0.3")
+
+DotPlot(object   = seurat_integrado,
+        features = TCD8_markers, 
+        group.by = "SCT_snn_res.0.3")
+
+
+genes_markers_B <- list(
+  Bcells_naive   = c("MS4A1","CD79A","CD79B","TCL1A","IGHD"),
+  Bcells_memory  = c("CD27","BANK1","HLA-DRA"),
+  Plasmablasts   = c("MZB1","XBP1","JCHAIN","SDC1","TNFRSF17","IGHG1","IGKC")
+)
+
+genes_markers_myeloid <- list(
+  Monocytes_classic     = c("LYZ","S100A8","S100A9","S100A12","CD14","VCAN","MNDA"),
+  Monocytes_nonclassic  = c("FCGR3A","MS4A7","MS4A4A","CXCL10","APOBEC3A","CSF1R"),
+  Monocytes_intermediate= c("HLA-DRA","CD74"),
+  Dendritic_cDC2        = c("FCER1A","CLEC10A","CD1C"),
+  Dendritic_pDC         = c("LILRA4","IL3RA","IRF7"),
+  Platelets             = c("PPBP","GP9","ITGA2B","TUBB1"),
+  Erythroid             = c("HBB","HBA1","HBA2","ALAS2","SLC4A1")
+)
+
+DotPlot(object   = seurat_integrado,
+        features = genes_markers_B, 
+        group.by = "SCT_snn_res.0.3")
+
+DotPlot(object   = seurat_integrado,
+        features = genes_markers_myeloid, 
+        group.by = "SCT_snn_res.0.3")
 
 # --- Mudando o nome dos clusters ---
 
