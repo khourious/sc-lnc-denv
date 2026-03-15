@@ -40,14 +40,15 @@ FeaturePlot(seurat_integrado, features = c("HBB","HBA1","HBA2")) # Red Cells
             
 genes_markers_effector <- list(
   TCell    = c("CD3E"),
-  T_naive  = c("IL7R","CCR7","SELL"),
-  T_memory = c("CD27"),
+  T_naive  = c("IL7R","CCR7","SELL", "CD62L"),
+  T_memory = c("CD27", "CD44"),
   
   T_CD4    = c("CD4", "STAT4","PRKCH","FYN","TOX","IFNG"),
   T_CD8    = c("CD8A", "GZMB","PRF1","NKG7","GNLY","GZMK"),
+  T_reg    = c("CD25"),
   
-   NK_classic      = c("KLRD1","KLRF1"),        
-  NK_proliferating= c("MKI67","TOP2A","PCNA","STMN1")
+  NK_classic       = c("CD16","KLRD1","KLRF1"),        
+  NK_proliferating = c("MKI67","TOP2A","PCNA","STMN1")
 )
 
 TCD4_markers <-list( 
