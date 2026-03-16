@@ -7,12 +7,15 @@ install.packages("devtools")
 install.packages("hdf5r")
 install.packages("SeuratDisk")
 BiocManager::install("glmGamPoi")
-
+devtools::install_github('immunogenomics/presto')
 devtools::install_github("immunogenomics/LISI")
+devtools::install_github("KlugerLab/ALRA")
+devtools::install_github('satijalab/seurat-wrappers')
+BiocManager::install("clustree")
+
 
 # Carregar pacotes
 library(igraph)
-library(lisi)
 library(scDblFinder)
 library(Seurat)
 library(hdf5r)
@@ -22,15 +25,19 @@ library(dplyr)
 library(cluster)
 library(patchwork)
 library(glmGamPoi)
+library(presto)
+library(ALRA)
+library(SeuratWrappers)
+library(clustree)
 
 
 setwd("~/denv")
 
 # --- lista DENV ---
 arquivos_h5 <- list(
- # dt1_control = "dataset1/denv_control/filtered_feature_bc_matrix.h5",
- # dt1_DF = "dataset1/denv_DF/filtered_feature_bc_matrix.h5",
- # dt1_DHF = "dataset1/denv_DHF/filtered_feature_bc_matrix.h5",
+  #dt1_control = "dataset1/denv_control/filtered_feature_bc_matrix.h5",
+  #dt1_DF = "dataset1/denv_DF/filtered_feature_bc_matrix.h5",
+  #dt1_DHF = "dataset1/denv_DHF/filtered_feature_bc_matrix.h5",
   dt2_DF_1  = "dataset2/denv_nat01/filtered_feature_bc_matrix.h5",
   dt2_DF_2 = "dataset2/denv_nat02/filtered_feature_bc_matrix.h5",
   dt3_primary = "dataset3/denv_primary/filtered_feature_bc_matrix.h5",
@@ -43,11 +50,11 @@ arquivos_h5 <- list(
 
 # --- barcode DENV ---
 amostras_por_arquivo <- list(
-#  dt1_control = "Healthy_Control_run1",
-#  dt1_DF = c("DF_Day_minus_1_run1","DF_Day_minus_1_run2","DF_Day_minus_2_run1","DF_Def_run1",
-#             "DF_Def_run2","DF_Wk2_run1"),
-#  dt1_DHF = c("DHF_Day_minus_1_run1","DHF_Day_minus_1_run2","DHF_Day_minus_2_run1",
-#              "DHF_Def_run1","DHF_Def_run2","DHF_Wk2_run1"),
+  #dt1_control = "Healthy_Control_run1",
+  #dt1_DF = c("DF_Day_minus_1_run1","DF_Day_minus_1_run2","DF_Day_minus_2_run1","DF_Def_run1",
+        #     "DF_Def_run2","DF_Wk2_run1"),
+  #dt1_DHF = c("DHF_Day_minus_1_run1","DHF_Day_minus_1_run2","DHF_Day_minus_2_run1",
+        #      "DHF_Def_run1","DHF_Def_run2","DHF_Wk2_run1"),
   dt2_DF_1  = c("SRR12215051","SRR12215052","SRR12215053"),
   dt2_DF_2 = c("SRR12215054","SRR12215055","SRR12215056"),
   dt3_primary = c("SRR11088622_Primary1_D1","SRR11088623_Primary1_D3","SRR11088624_Primary2_D1",
@@ -287,9 +294,6 @@ merged_sct  <- FindVariableFeatures(merged_sct)
 merged_sct  <- ScaleData(merged_sct)
 merged_sct  <- RunPCA(merged_sct)
 
-# --- Vizinhos e clusters ---
-merged_sct  <- FindNeighbors(merged_sct, dims = 1:30, reduction = "pca")
-merged_sct  <- FindClusters(merged_sct, resolution = 2, cluster.name = "unintegrated_clusters")
 
 # --- integração ---
 merged_sct_seurat <- IntegrateData(anchors, normalization.method = "SCT")
@@ -314,49 +318,64 @@ write.csv(markers_sct_seurat, file = "seurat_sct_markers.csv", row.names = FALSE
 ############
 ######### sct + harmony
 
+seurat_list_sct <- lapply(seurat_list, function(obj) {
+  obj <- SCTransform(obj, vars.to.regress = "percent.mt", verbose = TRUE)
+  
+  # Split do assay RNA por orig.ident
+  obj[["RNA"]] <- split(obj[["RNA"]], f = obj$orig.ident)
+  
+  return(obj)
+})
+
+# --- Merge dos objetos SCT ---
+merged_sct <- merge(
+  x = seurat_list_sct[[1]],
+  y = seurat_list_sct[-1],
+  add.cell.ids = names(seurat_list_sct)
+)
+
+# --- pipeline Seurat ---
+merged_sct  <- NormalizeData(merged_sct)
+merged_sct <- FindVariableFeatures(merged_sct) 
+merged_sct <- ScaleData(merged_sct) 
+merged_sct <- SCTransform(merged_sct, verbose = TRUE)
+
+# --- PCA --- 
+DefaultAssay(merged_sct) <- "SCT"
+merged_sct <- RunPCA(integrated_sct_harmony , verbose = TRUE, dims = 1:5)
+VizDimLoadings(merged_sct, dims = 1:5, reduction = "pca")
+DimHeatmap(merged_sct, dims = 1:8, cells = 500, balanced = TRUE)
+DimHeatmap(merged_sct, dims = 11:20, cells = 500, balanced = TRUE)
+DimHeatmap(merged_sct, dims = 21:30, cells = 500, balanced = TRUE)
+
 # --- Harmony ---
-
-merged_sct <- IntegrateLayers(
-  object = merged_sct, method = HarmonyIntegration,
-  orig.reduction = "pca", new.reduction = "harmony",
+rm(integrated_sct_harmony)
+integrated_sct_harmony <- IntegrateLayers(
+  object = merged_sct,
+  method = HarmonyIntegration,
+  orig.reduction = "pca",
+  new.reduction = "harmony",
   assay = "SCT",
-  verbose = FALSE
-)
+  verbose = FALSE,
+  layer.group = "dataset"
+) 
 
-merged_sct <- FindNeighbors(merged_sct, reduction = "harmony", dims = 1:30)
-merged_sct <- FindClusters(merged_sct, resolution = 2, cluster.name = "harmony_clusters2")
-
-merged_sct <- RunUMAP(merged_sct, reduction = "harmony", dims = 1:30, reduction.name = "umap.harmony")
-DimPlot(
-  merged_sct,
-  reduction = "umap.harmony",
-  group.by = c("orig.ident")
-)
-
-merged_sct_harmony <- merged_sct
-head(merged_sct_harmony@meta.data)
-# --- visulização não integrada ---
-DimPlot(merged_sct_harmony, reduction = "umap.harmony", group.by = "orig.ident")
-DimPlot(merged_sct_harmony, reduction = "umap.harmony", group.by = "group")
-DimPlot(merged_sct_harmony, reduction = "umap.harmony", group.by = "disease")
-DimPlot(merged_sct_harmony, reduction = "umap.harmony", group.by = "timepoint")
-DimPlot(merged_sct_harmony, reduction = "umap.harmony", group.by = "virus")
-DimPlot(merged_sct_harmony, reduction = "umap.harmony", group.by = "age")
-DimPlot(merged_sct_harmony, reduction = "umap.harmony", group.by = "sex") 
-DimPlot(merged_sct_harmony, reduction = "umap.harmony", group.by = "infection") 
-DimPlot(merged_sct_harmony, reduction = "umap.harmony", group.by = "dataset") 
-
-# --- integração e UMAP ---
-integrated_sct_harmony <- RunHarmony(merged_sct_harmony, group.by.vars = "dataset")
-integrated_sct_harmony <- RunUMAP(integrated_sct_harmony, reduction = "harmony", dims = 1:30)
 
 # -- vizinhos e clusters ---
-integrated_sct_harmony <- FindNeighbors(integrated_sct_harmony, reduction = "harmony", dims = 1:30)
-integrated_sct_harmony <- FindClusters(integrated_sct_harmony, resolution = c(0.2, 0.4, 0.5, 0.6, 0.8, 1))
+integrated_sct_harmony <- FindNeighbors(integrated_sct_harmony, reduction = "harmony", dims = 1:5, k.param = 10)
+integrated_sct_harmony <- seurat_integrado
+integrated_sct_harmony <- FindClusters(integrated_sct_harmony, resolution =  c(0.1))
+integrated_sct_harmony <- FindClusters(integrated_sct_harmony, resolution =  c(0.05, 0.01, 0.09, 0.1, 0.2, 0.3, 0.4))
 
-head(integrated_sct_harmony@meta.data)
-# --- Visualização Integrada ---
+# --- UMAP ---
+integrated_sct_harmony <- RunUMAP(integrated_sct_harmony, reduction = "harmony", dims = 1:8, reduction.name = "umap")
+clustree(integrated_sct_harmony, prefix = "SCT_snn_res.")
+
+# --- visulização integrada ---
 DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "orig.ident")
+
+head(integrated_sct_harmony_harmony@meta.data)
+
 DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "group")
 DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "disease")
 DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "timepoint")
@@ -365,10 +384,21 @@ DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "age")
 DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "sex") 
 DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "infection") 
 DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "dataset") 
-DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "SCT_snn_res.0.2", label = TRUE) + ggtitle("Seurat Clusters - resolution = 0.2")
+DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "SCT_snn_res.0.1") 
+DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "SCT_snn_res.0.01") 
+DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "SCT_snn_res.0.4") 
+DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "SCT_snn_res.0.09") 
+DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "SCT_snn_res.0.3") 
+DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "SCT_snn_res.0.15") 
+DimPlot(integrated_sct_harmony, reduction = "umap", group.by = "seurat_clusters")
+head(integrated_sct_harmony@meta.data)
+
+FeaturePlot(integrated_sct_harmony, features = c("CD3D", "CD8A", "CD4", "PRF1", "CD79A", "CD14", "FCGR3A", "CTLA4"), ncol = 2)
+
+VlnPlot(integrated_sct_harmony, features = "CTLA4", split.by = "dengue_classification")
 
 # --- Identificar marcadores de cluster
-integrated_sct_harmony <- JoinLayers(integrated_sct_harmony)
+Idents(integrated_sct_harmony) <- "SCT_snn_res.0.2"
 integrated_sct_harmony <- PrepSCTFindMarkers(integrated_sct_harmony)
 markers <- FindAllMarkers(integrated_sct_harmony, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
 
@@ -441,6 +471,22 @@ amostras_febre_absoluta <- unlist(amostras_por_arquivo[c("dt4_control", "dt4_DF"
 
 # Extrair metadados
 meta <-  merged_sct_harmony@meta.data
+
+# Defervescente
+df_def <- meta %>%
+  filter(orig.ident %in% amostras_defervescente) %>%
+  count(timepoint) %>%
+  mutate(timepoint = factor(timepoint, levels = c("control","-5","-4", "-3", "-2", "-1", "0", 
+                                                  "1", "2", "3", "5", "7", "14", "180"))) %>%
+  arrange(timepoint)
+
+
+# Febre absoluta
+df_febre <- meta %>%
+  filter(orig.ident %in% amostras_febre_absoluta) %>%
+  count(timepoint) %>%
+  mutate(timepoint = factor(timepoint, levels = c("control", "1", "2", "3", "4", "5", "6", "7", "T"))) %>%
+  arrange(timepoint)
 
 
 # Gráfico 1: tempo relativo à defervescência
