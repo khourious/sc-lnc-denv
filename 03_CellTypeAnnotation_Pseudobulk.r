@@ -12,8 +12,8 @@ library(Seurat)
 
 # --- Pipeline ---
 setwd("~/denv")
-seurat_integrado <- readRDS("sct_harmony_merged_novo.rds")
-seurat_integrado <- integrated_sct_harmony
+seurat_integrado <- readRDS("RDS/sct_harmony_annotation.rds")
+integrated_sct_harmony <- seurat_integrado
 table(seurat_integrado$SCT_snn_res.0.3)
 seurat_integrado$SCT_snn_res.0.3
 
@@ -22,8 +22,8 @@ sub <- FindVariableFeatures(sub)
 sub <- ScaleData(sub)
 sub <- RunPCA(sub)
 sub <- FindNeighbors(sub, dims = 1:5)
-sub <- FindClusters(sub, resolution = 0.06)
-sub <- RunUMAP(sub, dims = 1:6)
+sub <- FindClusters(sub, resolution = 0.05)
+sub <- RunUMAP(sub, dims = 1:8)
 DimPlot(sub, label = TRUE)
 
 FeaturePlot(sub, features = c("STAT4","PRKCH","FYN","TOX","IFNG", "CD3D", "CD4")) # tcd efector
@@ -69,7 +69,7 @@ seurat_integrado$refined_clusters[Cells(sub)] <- sub$refined_clusters
 # Confirme que foi removido
 table(Idents(seurat_integrado))
 
-
+Idents(seurat_integrado) <- seurat_integrado$SCT_snn_res.0.3
 DimPlot(
   seurat_integrado,
   reduction = "umap",
@@ -216,27 +216,32 @@ seurat_integrado$celltype_global <- plyr::mapvalues(
   to   = cluster_names
 )
 
-# Cluster 4
+# Cluster 0
 DimPlot(sub, label = TRUE)
 seurat_integrado$celltype_global <- as.character(seurat_integrado$celltype_global)
+
+sub$refined_clusters <- Idents(sub)
 seurat_integrado$celltype_global[Cells(sub)[sub$refined_clusters == "0"]] <- "T cell naive"
 seurat_integrado$celltype_global[Cells(sub)[sub$refined_clusters == "1"]] <- "T cell naive"
-seurat_integrado$celltype_global[Cells(sub)[sub$refined_clusters == "2"]] <- "T cell naive"
-seurat_integrado$celltype_global[Cells(sub)[sub$refined_clusters == "3"]] <- "Red Cell"
+seurat_integrado$celltype_global[Cells(sub)[sub$refined_clusters == "2"]] <- "Red Cell"
 
-# cluster 16
+# cluster 4
 seurat_integrado$celltype_global <- as.character(seurat_integrado$celltype_global)
 
+sub1$refined_clusters <- Idents(sub1)
 seurat_integrado$celltype_global[Cells(sub1)[sub1$refined_clusters == "0"]] <- "T CD4+ effector"
 seurat_integrado$celltype_global[Cells(sub1)[sub1$refined_clusters == "1"]] <- "T CD4+ effector"
 seurat_integrado$celltype_global[Cells(sub1)[sub1$refined_clusters == "2"]] <- "T CD4+ effector"
-seurat_integrado$celltype_global[Cells(sub1)[sub1$refined_clusters == "3"]] <- "Platelets"
+seurat_integrado$celltype_global[Cells(sub1)[sub1$refined_clusters == "3"]] <- "T CD4+ effector"
+seurat_integrado$celltype_global[Cells(sub1)[sub1$refined_clusters == "4"]] <- "Platelets"
 seurat_integrado$celltype_global <- factor(seurat_integrado$celltype_global)
 
 
 DimPlot(seurat_integrado, group.by = "celltype_global", label = TRUE)
 
 DimPlot(seurat_integrado, group.by = "celltype_global", label = TRUE) + ggtitle("Anotação Manual dos Clusters")
+
+saveRDS(seurat_integrado, file = "RDS/sct_harmony_annotation.rds")
 
 # --- Umaps ---
 DimPlot(seurat_integrado, reduction = "umap", label = TRUE, pt.size = 0.5, group.by = "celltype_global") +
@@ -283,7 +288,7 @@ DimPlot(seurat_integrado, reduction = "umap", label = TRUE, pt.size = 0.6, label
   ggtitle("PBMC cell types")
 
 
-saveRDS(seurat_integrado, file = "RDS/sct_harmony_merged.rds")
+# --- Pseudobulk
 
 # --- Pseudobulk
 
@@ -298,16 +303,11 @@ seurat_integrado$IG_score <- colSums(
 seurat_integrado$IG_score <- seurat_integrado$IG_score / seurat_integrado$nCount_RNA
 
 seurat_integrado$macrogrupo <- case_when(
-  seurat_integrado$cell_type %in% c("Monocytes classic", "Monocytes non classic", "Dendritic") ~ "Myeloid",
-  seurat_integrado$cell_type %in% c("T cell naive", "T CD8+ effector", "T CD4+ effector", "NK classic") ~ "Lymphoid_T_NK",
-  seurat_integrado$cell_type %in% c("B cell naive", "Plasmablasts") ~ "B_lineage",
+  seurat_integrado$celltype_global %in% c("Monocytes classic", "Monocytes non classic", "Dendritic") ~ "Myeloid",
+  seurat_integrado$celltype_global%in% c("T cell naive", "T CD8+ effector", "T CD4+ effector", "NK classic") ~ "Lymphoid_T_NK",
+  seurat_integrado$celltype_global %in% c("B cell naive", "Plasmablasts") ~ "B_lineage",
   TRUE ~ "outros"
 )
-
-
-obj_myeloid <- subset(seurat_integrado, subset = macrogrupo == "Myeloid")
-obj_tnk     <- subset(seurat_integrado, subset = macrogrupo == "Lymphoid_T_NK")
-obj_b       <- subset(seurat_integrado, subset = macrogrupo == "B_lineage")
 
 obj_myeloid <- subset(seurat_integrado,
                       subset = macrogrupo == "Myeloid" & IG_score < 0.05)
@@ -318,117 +318,161 @@ obj_tnk <- subset(seurat_integrado,
 obj_b <- subset(seurat_integrado,
                 subset = macrogrupo == "B_lineage")
 
+library(Seurat)
+library(dplyr)
 
-export_pseudobulk_by_celltype <- function(seurat_obj, macrogrupo_nome) {
-  
-  DefaultAssay(seurat_obj) <- "RNA"
-  counts <- GetAssayData(seurat_obj, slot = "counts")
-  meta <- seurat_obj@meta.data
-  
-  # lista de cell types dentro do macrogrupo
-  celltypes <- unique(meta$cell_type)
-  
-  for (ct in celltypes) {
-    message("Processando: ", macrogrupo_nome, " - ", ct)
-    
-    meta_ct <- meta[meta$cell_type == ct, ]
-    cells_by_sample <- split(meta_ct$cell_id, meta_ct$orig.ident)
-    
-    # pseudobulk counts
-    pb_counts <- do.call(cbind, lapply(cells_by_sample, function(cells) {
-      rowSums(counts[, cells, drop = FALSE])
-    }))
-    
-    # metadata
-    sample_meta <- meta_ct %>%
-      dplyr::group_by(orig.ident, cell_type, macrogrupo) %>%
-      dplyr::summarise(
-        dengue_classification = ifelse(all(is.na(dengue_classification)), NA, na.omit(dengue_classification)[1]),
-        .groups = "drop"
-      ) %>%
-      as.data.frame()
-    
-    rownames(sample_meta) <- sample_meta$orig.ident
-    sample_meta <- sample_meta[colnames(pb_counts), , drop = FALSE]
-    
-    # exportar arquivos separados
-    fname_counts <- paste0("pseudobulk_counts_", gsub(" ", "_", ct), ".csv")
-    fname_meta   <- paste0("metadata_", gsub(" ", "_", ct), ".csv")
-    
-    write.csv(pb_counts, file = fname_counts)
-    write.csv(sample_meta, file = fname_meta)
-  }
+# 1. Preparação
+counts <- GetAssayData(obj_myeloid, layer = "counts")
+meta <- obj_myeloid@meta.data
+meta$cell_id <- colnames(obj_myeloid)
+
+counts <- GetAssayData(obj_tnk, layer = "counts")
+meta <- obj_tnk@meta.data
+meta$cell_id <- colnames(obj_tnk)
+
+# 2. Função auxiliar para pegar primeiro valor não-NA
+first_non_na <- function(x) {
+  x2 <- x[!is.na(x)]
+  if (length(x2) == 0) return(NA) else return(x2[1])
 }
 
-export_pseudobulk_by_celltype(obj_myeloid, "Myeloid")
-export_pseudobulk_by_celltype(obj_tnk, "Lymphoid_T_NK")
-export_pseudobulk_by_celltype(obj_b, "B_lineage")
-
-# --- exemplo para dendritic
-pb_dendritic <- read.csv("pseudobulk_counts_Dendritic.csv", row.names = 1)
-rowSums(pb_dendritic[grep("^IG", rownames(pb_dendritic)), ])
-
-
-
-
-
-
-
-
-#--- anterior
-meta <- seurat_integrado@meta.data
-meta$cell_id <- rownames(meta)
-
-# Lista de tipos celulares
+# 3. Tipos celulares que você quer processar
 tipos_celulares <- unique(meta$celltype_global)
 
-# Lista para guardar os pseudobulks
+# 4. Listas para armazenar resultados
 pseudobulk_lista <- list()
 metadata_lista <- list()
 
+# 5. Loop por tipo celular
 for (tipo in tipos_celulares) {
   message("Processando tipo celular: ", tipo)
   
-  # Filtra células do tipo atual
-  meta_tipo <- meta[meta$celltype_global == tipo, ]
+  meta_tipo <- meta[meta$celltype_global == tipo, , drop = FALSE]
+  if (nrow(meta_tipo) == 0) next
   
-  # Agrupa células por amostra
-  cells_by_sample <- split(meta_tipo$cell_id, meta_tipo$orig.ident)
+  # excluir dataset_3
+  meta_tipo <- meta_tipo[meta_tipo$dataset != "dataset_3", ]
+  if (nrow(meta_tipo) == 0) {
+    message(" -> todas as células desse tipo eram do dataset_3, nada a fazer")
+    next
+  }
   
-  # Gera pseudobulk
-  pseudobulk_counts <- sapply(cells_by_sample, function(cells) {
-    rowSums(counts[, cells, drop = FALSE])
+  # células por amostra
+  cells_by_sample <- split(as.character(meta_tipo$cell_id), as.character(meta_tipo$orig.ident))
+  cells_by_sample <- cells_by_sample[sapply(cells_by_sample, length) >= 5]  # opcional: mínimo de células
+  
+  if (length(cells_by_sample) == 0) {
+    message(" -> nenhuma amostra válida após filtro")
+    next
+  }
+  
+  # pseudobulk counts
+  pb_mat <- do.call(cbind, lapply(cells_by_sample, function(cells) {
+    rowSums(counts[, intersect(cells, colnames(counts)), drop = FALSE])
+  }))
+  colnames(pb_mat) <- names(cells_by_sample)
+  
+  # metadata por amostra
+  cols_keep <- c("orig.ident","dengue_classification","age","virus","sex","group",
+                 "infection","dataset","timepoint","disease")
+  cols_keep <- intersect(cols_keep, colnames(meta_tipo))
+  
+  sample_meta_rows <- lapply(names(cells_by_sample), function(samp) {
+    rows <- meta_tipo[as.character(meta_tipo$orig.ident) == samp, , drop = FALSE]
+    vals <- sapply(cols_keep, function(col) first_non_na(rows[[col]]), USE.NAMES = TRUE)
+    df <- as.data.frame(t(vals), stringsAsFactors = FALSE)
+    df$orig.ident <- samp
+    df$n_cells <- length(rows$cell_id)
+    rownames(df) <- samp
+    return(df)
   })
+  sample_meta <- do.call(rbind, sample_meta_rows)
+  sample_meta <- sample_meta[colnames(pb_mat), , drop = FALSE]
   
-  # Cria metadados por amostra
-  sample_meta <- meta_tipo %>%
-    group_by(orig.ident) %>%
-    summarise(
-      dengue_classification = first(na.omit(dengue_classification)),
-      age = first(na.omit(age)),
-      virus = first(na.omit(virus)),
-      sex = first(na.omit(sex)),
-      group = first(na.omit(group)),
-      infection = first(na.omit(infection)),
-      dataset = first(na.omit(dataset)),
-      timepoint = first(na.omit(timepoint)),
-      disease = first(na.omit(disease))
-    ) %>%
-    ungroup() %>%
-    as.data.frame()
-  
-  
-  
-  
-  rownames(sample_meta) <- sample_meta$orig.ident
-  sample_meta <- sample_meta[colnames(pseudobulk_counts), , drop = FALSE]
-  
-  # Salva na lista
-  pseudobulk_lista[[tipo]] <- pseudobulk_counts
+  # salvar em listas
+  pseudobulk_lista[[tipo]] <- pb_mat
   metadata_lista[[tipo]] <- sample_meta
+  
+  message("  -> gerados ", ncol(pb_mat), " pseudobulks para ", tipo)
 }
 
+# 6. Normalização (opcional, CPM)
+pseudobulk_cpm <- lapply(pseudobulk_lista, function(pb) {
+  t(t(pb) / colSums(pb) * 1e6)
+})
+
+# 7. Exportar (opcional)
 for (tipo in names(pseudobulk_lista)) {
-  write.csv(pseudobulk_lista[[tipo]], file = paste0("pseudobulk_", tipo, ".csv"))
+  write.csv(as.data.frame(pseudobulk_lista[[tipo]]), file = paste0("pseudobulk_", tipo, ".csv"))
   write.csv(metadata_lista[[tipo]], file = paste0("metadata_", tipo, ".csv"))
 }
+
+
+
+
+
+
+
+
+library(Seurat)
+library(dplyr)
+
+# 1. Preparação
+counts <- GetAssayData(obj_b, layer = "counts")
+meta <- obj_b@meta.data
+meta$cell_id <- colnames(obj_b)
+
+# 2. Função auxiliar
+first_non_na <- function(x) {
+  x2 <- x[!is.na(x)]
+  if (length(x2) == 0) return(NA) else return(x2[1])
+}
+
+# 3. Selecionar apenas células B (naive e plasmablasts separadas se quiser)
+meta_Bnaive <- meta[meta$celltype_global == "B cell naive", , drop = FALSE]
+meta_Plasma <- meta[meta$celltype_global == "Plasmablasts", , drop = FALSE]
+
+# 4. Função para gerar pseudobulk de um subtipo
+make_pseudobulk <- function(meta_tipo, counts, tipo_nome) {
+  cells_by_sample <- split(as.character(meta_tipo$cell_id), as.character(meta_tipo$orig.ident))
+  cells_by_sample <- cells_by_sample[sapply(cells_by_sample, length) >= 5]
+  
+  pb_mat <- do.call(cbind, lapply(cells_by_sample, function(cells) {
+    rowSums(counts[, intersect(cells, colnames(counts)), drop = FALSE])
+  }))
+  colnames(pb_mat) <- names(cells_by_sample)
+  
+  cols_keep <- c("orig.ident","dengue_classification","age","virus","sex","group",
+                 "infection","dataset","timepoint","disease")
+  cols_keep <- intersect(cols_keep, colnames(meta_tipo))
+  
+  sample_meta_rows <- lapply(names(cells_by_sample), function(samp) {
+    rows <- meta_tipo[as.character(meta_tipo$orig.ident) == samp, , drop = FALSE]
+    vals <- sapply(cols_keep, function(col) first_non_na(rows[[col]]), USE.NAMES = TRUE)
+    df <- as.data.frame(t(vals), stringsAsFactors = FALSE)
+    df$orig.ident <- samp
+    df$n_cells <- length(rows$cell_id)
+    rownames(df) <- samp
+    return(df)
+  })
+  sample_meta <- do.call(rbind, sample_meta_rows)
+  sample_meta <- sample_meta[colnames(pb_mat), , drop = FALSE]
+  
+  list(counts = pb_mat, meta = sample_meta)
+}
+
+# 5. Gerar pseudobulk separado para B naive e plasmablasts
+pb_Bnaive <- make_pseudobulk(meta_Bnaive, counts, "Bnaive")
+pb_Plasma <- make_pseudobulk(meta_Plasma, counts, "Plasmablasts")
+
+# 6. Normalização (opcional)
+pb_Bnaive_cpm <- t(t(pb_Bnaive$counts) / colSums(pb_Bnaive$counts) * 1e6)
+pb_Plasma_cpm <- t(t(pb_Plasma$counts) / colSums(pb_Plasma$counts) * 1e6)
+
+# 7. Exportar (opcional)
+write.csv(as.data.frame(pb_Bnaive$counts), file = "pseudobulk_Bnaive.csv")
+write.csv(pb_Bnaive$meta, file = "metadata_Bnaive.csv")
+
+write.csv(as.data.frame(pb_Plasma$counts), file = "pseudobulk_Plasmablasts.csv")
+write.csv(pb_Plasma$meta, file = "metadata_Plasmablasts.csv")
+
