@@ -286,6 +286,96 @@ DimPlot(seurat_integrado, reduction = "umap", label = TRUE, pt.size = 0.6, label
 saveRDS(seurat_integrado, file = "RDS/sct_harmony_merged.rds")
 
 # --- Pseudobulk
+
+genes_ig <- grep("^IG[HKL]", rownames(seurat_integrado), value = TRUE)
+
+# calcular score IG por célula
+seurat_integrado$IG_score <- colSums(
+  GetAssayData(seurat_integrado, layer = "counts")[genes_ig, ]
+)
+
+# normalizar pelo total de counts
+seurat_integrado$IG_score <- seurat_integrado$IG_score / seurat_integrado$nCount_RNA
+
+seurat_integrado$macrogrupo <- case_when(
+  seurat_integrado$cell_type %in% c("Monocytes classic", "Monocytes non classic", "Dendritic") ~ "Myeloid",
+  seurat_integrado$cell_type %in% c("T cell naive", "T CD8+ effector", "T CD4+ effector", "NK classic") ~ "Lymphoid_T_NK",
+  seurat_integrado$cell_type %in% c("B cell naive", "Plasmablasts") ~ "B_lineage",
+  TRUE ~ "outros"
+)
+
+
+obj_myeloid <- subset(seurat_integrado, subset = macrogrupo == "Myeloid")
+obj_tnk     <- subset(seurat_integrado, subset = macrogrupo == "Lymphoid_T_NK")
+obj_b       <- subset(seurat_integrado, subset = macrogrupo == "B_lineage")
+
+obj_myeloid <- subset(seurat_integrado,
+                      subset = macrogrupo == "Myeloid" & IG_score < 0.05)
+
+obj_tnk <- subset(seurat_integrado,
+                  subset = macrogrupo == "Lymphoid_T_NK" & IG_score < 0.05)
+
+obj_b <- subset(seurat_integrado,
+                subset = macrogrupo == "B_lineage")
+
+
+export_pseudobulk_by_celltype <- function(seurat_obj, macrogrupo_nome) {
+  
+  DefaultAssay(seurat_obj) <- "RNA"
+  counts <- GetAssayData(seurat_obj, slot = "counts")
+  meta <- seurat_obj@meta.data
+  
+  # lista de cell types dentro do macrogrupo
+  celltypes <- unique(meta$cell_type)
+  
+  for (ct in celltypes) {
+    message("Processando: ", macrogrupo_nome, " - ", ct)
+    
+    meta_ct <- meta[meta$cell_type == ct, ]
+    cells_by_sample <- split(meta_ct$cell_id, meta_ct$orig.ident)
+    
+    # pseudobulk counts
+    pb_counts <- do.call(cbind, lapply(cells_by_sample, function(cells) {
+      rowSums(counts[, cells, drop = FALSE])
+    }))
+    
+    # metadata
+    sample_meta <- meta_ct %>%
+      dplyr::group_by(orig.ident, cell_type, macrogrupo) %>%
+      dplyr::summarise(
+        dengue_classification = ifelse(all(is.na(dengue_classification)), NA, na.omit(dengue_classification)[1]),
+        .groups = "drop"
+      ) %>%
+      as.data.frame()
+    
+    rownames(sample_meta) <- sample_meta$orig.ident
+    sample_meta <- sample_meta[colnames(pb_counts), , drop = FALSE]
+    
+    # exportar arquivos separados
+    fname_counts <- paste0("pseudobulk_counts_", gsub(" ", "_", ct), ".csv")
+    fname_meta   <- paste0("metadata_", gsub(" ", "_", ct), ".csv")
+    
+    write.csv(pb_counts, file = fname_counts)
+    write.csv(sample_meta, file = fname_meta)
+  }
+}
+
+export_pseudobulk_by_celltype(obj_myeloid, "Myeloid")
+export_pseudobulk_by_celltype(obj_tnk, "Lymphoid_T_NK")
+export_pseudobulk_by_celltype(obj_b, "B_lineage")
+
+# --- exemplo para dendritic
+pb_dendritic <- read.csv("pseudobulk_counts_Dendritic.csv", row.names = 1)
+rowSums(pb_dendritic[grep("^IG", rownames(pb_dendritic)), ])
+
+
+
+
+
+
+
+
+#--- anterior
 meta <- seurat_integrado@meta.data
 meta$cell_id <- rownames(meta)
 
