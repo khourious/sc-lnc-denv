@@ -624,3 +624,116 @@ colnames(counts_mat)
 rownames(counts_mat)[1:10] 
 
 write.csv(counts_mat, "pseudobulk_counts.csv")
+
+
+
+
+#########################
+
+# ---- pseudobulk individual ----
+seurat_integrado$celltype_0.5_fine <- dplyr::case_when(
+  # T CD4+
+  seurat_integrado$celltype_0.5 %in% c("CD4+ Naive T") ~ "CD4+ Naive T",
+  seurat_integrado$celltype_0.5 %in% c("CD4+ Effector T", "CD4+ Memory T") ~ "CD4+ ActMem T",
+  
+  # T CD8+
+  seurat_integrado$celltype_0.5 %in% c("CD8+ Naive T") ~ "CD8+ Naive T",
+  seurat_integrado$celltype_0.5 %in% c("CD8+ Effector Memory T", "CD8+ exhausted T") ~ "CD8+ ActMem T",
+  
+  # B cells
+  seurat_integrado$celltype_0.5 %in% c("Naive B") ~ "Naive B",
+  seurat_integrado$celltype_0.5 %in% c("Memory B", "Activated B") ~ "ActMem B",
+  
+  # Plasmablastos
+  seurat_integrado$celltype_0.5 %in% c("Plasmablast") ~ "Plasmablast",
+  seurat_integrado$celltype_0.5 %in% c("Pre-Plasmablast") ~ "Pre-Plasmablast",
+  
+  # Monócitos
+  seurat_integrado$celltype_0.5 %in% c("Classical Monocytes", "Monocytes") ~ "Classical Monocytes",
+  seurat_integrado$celltype_0.5 %in% c("Non Classical Monocytes") ~ "Non Classical Monocytes", 
+  
+  # NK
+  seurat_integrado$celltype_0.5 %in% c("Signaling NK", "Cytotoxit NK") ~ "NK",
+  
+  # DCs
+  seurat_integrado$celltype_0.5 %in% c("cDC") ~ "cDC",
+  seurat_integrado$celltype_0.5 %in% c("pDC") ~ "pDC"
+)
+
+unique(seurat_integrado$celltype_0.5[is.na(seurat_integrado$celltype_0.5_fine)])
+
+DimPlot(seurat_integrado, reduction = "umap", label = TRUE, pt.size = 0.5, group.by = "celltype_0.5_fine") +
+  theme_classic() +
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_blank(),
+    axis.title = element_blank(),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11, face = "bold"),
+    plot.title = element_text(size = 14, face = "bold")
+  ) +
+  ggtitle("PBMC cell types")
+
+
+
+celltype_colors_fine <- c(
+  # T cells (verdes e azuis diferenciados)
+  "CD4+ Naive T"            = "#7fcdbb",
+  "CD4+ ActMem T"           = "#02818a",
+  
+  "CD8+ Naive T"            = "#c7e9c0",  
+  "CD8+ ActMem T"           = "#006d2c",
+  
+  "NK"                      = "#225ea8", 
+  
+  # Monócitos (roxo)
+  "Classical Monocytes"     = "#807dba",
+  "Non Classical Monocytes" = "#4d004b",
+  
+  # Plasmablastos (rosa)
+  "Plasmablast"             =  "#c51b7d",    
+  "Pre-Plasmablast"          = "#de77ae",  
+  
+  # B cells (tons de marrom/laranja queimado bem distintos)
+  "Naive B"                    = "#feb24c", 
+  "ActMem B"                   = "#d94801",  
+  
+  # Outros (tons neutros)
+  "pDC"                     = "#67001f",
+  "cDC"                     = "#d53e4f"
+)
+
+DimPlot(seurat_integrado, group.by = "celltype_0.5_fine", 
+        cols = celltype_colors_fine, label = TRUE,  pt.size = 0.8, label.size = 3) +
+  theme_classic() +
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_blank(),
+    axis.title = element_blank(),
+    legend.position = "right",
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 11, face = "bold"),
+    plot.title = element_text(size = 14, face = "bold")
+  ) +
+  ggtitle("PBMC cell types")
+
+celltype_choice <- "Non Classical Monocytes"  # ajuste conforme sua anotação (ex: "T_CD8_ActMem", "Plasmablast")
+
+cells_choice <- WhichCells(seurat_integrado, expression = celltype_0.5_fine == celltype_choice)
+
+length(cells_choice)  # verifique se há células
+
+pseudo <- AggregateExpression(
+  seurat_integrado,
+  group.by = "orig.ident",
+  assays = "RNA",
+  slot = "counts",
+  return.seurat = FALSE,
+  cells = cells_choice
+)
+counts_mat <- pseudo$RNA
+
+write.csv(counts_mat, paste0("pseudobulk_", celltype_choice, ".csv"))
