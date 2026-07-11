@@ -39,6 +39,8 @@ dir.create("Anndata/harmony", showWarnings = FALSE)
 
 # --- Matriz de contagem
 counts_matrix <- GetAssayData(combined, assay = "RNA", slot = "counts")
+names(obj[["RNA"]]@layers)
+counts_matrix <- obj[["RNA"]]@layers[["counts"]]
 writeMM(counts_matrix, file = paste0("Anndata/matrix/", "matrix.mtx"))
 
 # --- Nomes dos genes
