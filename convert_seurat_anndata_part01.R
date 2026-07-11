@@ -1,3 +1,26 @@
+# ---- opção 1 ----
+library(Seurat)
+obj <- readRDS("integradtion.rds")
+colnames(obj@meta.data)
+
+remotes::install("SeuratObject")
+library(SeuratDisk)
+SaveH5Seurat(obj, "seu.h5Seurat")
+Convert("set.h5Seurat", "h5ad")
+
+# --- opção 2 ---
+devtools::install_github ("cellgeni/sceasy")
+library(reticulate)
+library(sceasy)
+
+obj <- readRDS("integradtion.rds")
+colnames(obj@meta.data)
+sceasy::convertFormat(obj,
+                      from = "seurat",
+                      to = "anndata",
+                      outFile = "obj.h5ad")
+
+# --- opção 3 ---
 library(Seurat)
 library(Matrix)
 library(tidyverse)
@@ -20,14 +43,14 @@ writeMM(counts_matrix, file = paste0("Anndata/matrix/", "matrix.mtx"))
 
 # --- Nomes dos genes
 write.table(data.frame('gene'=rownames(counts_matrix)),
-            file = paste0("Anndata/gene_names/", "gene_names.csv"), 
-            quote=F, row.names=F,col.names=f)
+            file = "Anndata/gene_names/gene_names.csv",
+            quote = FALSE, row.names = FALSE, col.names = FALSE)
 
 # --- Embeddings do Harmony
 harmony_embeddings <- combined@reductions$harmony@cell.embeddings
 write.csv(harmony_embeddings,
-            file = paste0("Anndata/harmony", "harmony.csv"),
-            quote = FALSE, row.names = TRUE)
+          file = "Anndata/harmony/harmony.csv",
+          quote = FALSE, row.names = TRUE)
 
 
 # --- Embeddings do UMAP (opcional)
