@@ -223,7 +223,6 @@ seurat_list <- processar_amostras(
 )
 
 
-
 ####### - PCA + Harmony
 # --- Normalização padrão ---
 seurat_list <- lapply(seurat_list, NormalizeData)
@@ -237,19 +236,15 @@ harmony_merged_pca <- ScaleData(harmony_merged_pca, vars.to.regress = "percent.m
 harmony_merged_pca <- RunPCA(harmony_merged_pca)
 
 # --- Harmony ----
-
 harmony_merged_pca <- RunHarmony(harmony_merged_pca,
                                  "orig.ident",
                                  "pca",
                                  dims.use = 1:30)
 
-
-
 # --- UMAP e clustering usando Harmony ----
 harmony_merged_pca <- RunUMAP(harmony_merged_pca, reduction = "harmony", dims = 1:30, n.neighbors = 50)
 harmony_merged_pca <- FindNeighbors(harmony_merged_pca, reduction = "harmony", dims = 1:30)
 harmony_merged_pca <- FindClusters(harmony_merged_pca, resolution = 0.5)
-
 
 harmony_merged_pca@meta.data
 
@@ -265,8 +260,8 @@ markers <- FindAllMarkers(harmony_merged_pca, only.pos = TRUE, min.pct = 0.25, l
 saveRDS(harmony_merged_pca, file = "harmony_merged_pca_novo.rds")
 write.csv(markers, file = "harmony_pca_markers_novo.csv", row.names = FALSE)
 
-metadata_denv
-############
+
+######################################################################################################
 # SCT + seurat 
 
 # --- Normalização com SCTransform por amostra ---
@@ -294,7 +289,6 @@ merged_sct  <- FindVariableFeatures(merged_sct)
 merged_sct  <- ScaleData(merged_sct)
 merged_sct  <- RunPCA(merged_sct)
 
-
 # --- integração ---
 merged_sct_seurat <- IntegrateData(anchors, normalization.method = "SCT")
 
@@ -302,7 +296,6 @@ merged_sct_seurat <- IntegrateData(anchors, normalization.method = "SCT")
 merged_sct_seurat <- RunPCA(merged_sct_seurat)
 merged_sct_seurat <- RunUMAP(merged_sct_seurat, dims = 1:30)
 merged_sct_seurat <- FindNeighbors(merged_sct_seurat, dims = 1:30)
-
 
 # --- Visualizar UMAP com clusters
 DimPlot(merged_sct_seurat, reduction = "umap", group.by = "seurat_clusters", label = TRUE)
@@ -314,10 +307,8 @@ markers_sct_seurat <- FindAllMarkers(merged_sct_seurat, only.pos = TRUE, min.pct
 saveRDS(merged_sct_seurat, file = "merged_sct_seurat.rds")
 write.csv(markers_sct_seurat, file = "seurat_sct_markers.csv", row.names = FALSE)
 
-
-############
-######### sct + harmony
-
+#########################################################
+# --- Harmony no Seurat ----
 seurat_list_sct <- lapply(seurat_list, function(obj) {
   obj <- SCTransform(obj, vars.to.regress = "percent.mt", verbose = TRUE)
   
@@ -338,10 +329,9 @@ merged_sct <- merge(
 merged_sct  <- NormalizeData(merged_sct)
 merged_sct <- FindVariableFeatures(merged_sct) 
 merged_sct <- ScaleData(merged_sct) 
-merged_sct <- SCTransform(merged_sct, verbose = TRUE)
 
 # --- PCA --- 
-DefaultAssay(merged_sct) <- "SCT"
+DefaultAssay(merged_sct) <- "RNA"
 merged_sct <- RunPCA(integrated_sct_harmony , verbose = TRUE, dims = 1:5)
 VizDimLoadings(merged_sct, dims = 1:5, reduction = "pca")
 DimHeatmap(merged_sct, dims = 1:8, cells = 500, balanced = TRUE)
@@ -355,11 +345,10 @@ integrated_sct_harmony <- IntegrateLayers(
   method = HarmonyIntegration,
   orig.reduction = "pca",
   new.reduction = "harmony",
-  assay = "SCT",
+  assay = "RNA",
   verbose = FALSE,
   layer.group = "dataset"
 ) 
-
 
 # -- vizinhos e clusters ---
 integrated_sct_harmony <- FindNeighbors(integrated_sct_harmony, reduction = "harmony", dims = 1:5, k.param = 10)
@@ -398,7 +387,7 @@ FeaturePlot(integrated_sct_harmony, features = c("CD3D", "CD8A", "CD4", "PRF1", 
 VlnPlot(integrated_sct_harmony, features = "CTLA4", split.by = "dengue_classification")
 
 # --- Identificar marcadores de cluster
-Idents(integrated_sct_harmony) <- "SCT_snn_res.0.2"
+Idents(integrated_sct_harmony) <- "RNA_snn_res.0.2"
 integrated_sct_harmony <- PrepSCTFindMarkers(integrated_sct_harmony)
 markers <- FindAllMarkers(integrated_sct_harmony, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
 
@@ -407,100 +396,4 @@ DimPlot(harmony_merged_pca, group.by = "orig.ident") + ggtitle("PCA + Harmony")
 DimPlot(merged_sct_seurat, group.by = "orig.ident") + ggtitle("SCT + Seurat")
 DimPlot(integrated_sct_harmony, group.by = "orig.ident") + ggtitle("SCT + Harmony")
 write.csv(markers , file = "sct_harmony_markers.csv", row.names = FALSE)
-saveRDS(integrated_sct_harmony, file = "sct_harmony_merged_novo.rds")
-
-
-
-library(ggplot2)
-library(dplyr)
-
-# Agrupar e contar células por timepoint
-df <- merged_sct_harmony@meta.data %>%
-  dplyr::count(timepoint)
-
-# Converter timepoint para fator ordenado (se necessário)
-df$timepoint <- factor(df$timepoint, levels = sort(unique(df$timepoint)))
-
-# Criar gráfico de linha
-ggplot(df, aes(x = timepoint, y = n, group = 1)) +
-  geom_line(color = "#2C3E50", size = 1) +
-  geom_point(color = "#E74C3C", size = 2) +
-  theme_minimal() +
-  labs(
-    title = "Quantidade de células ao longo do tempo",
-    x = "Timepoint clínico",
-    y = "Número de células"
-  ) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-
-# Amostras com tempo relativo à defervescência
-amostras_defervescente <- unlist(amostras_por_arquivo[c("dt1_control", "dt1_DF", "dt1_DHF", "dt2_DF_1", "dt2_DF_2", "dt3_primary", "dt3_secundary")])
-
-# Amostras com tempo absoluto de febre
-amostras_febre_absoluta <- unlist(amostras_por_arquivo[c("dt4_control", "dt4_DF", "dt4_DWS", "dt4_SD")])
-
-library(ggplot2)
-library(dplyr)
-
-# Agrupar e contar células por timepoint
-df <- merged_sct_harmony@meta.data %>%
-  dplyr::count(timepoint)
-
-# Converter timepoint para fator ordenado (se necessário)
-df$timepoint <- factor(df$timepoint, levels = sort(unique(df$timepoint)))
-
-# Criar gráfico de linha
-ggplot(df, aes(x = timepoint, y = n, group = 1)) +
-  geom_line(color = "#2C3E50", size = 1) +
-  geom_point(color = "#E74C3C", size = 2) +
-  theme_minimal() +
-  labs(
-    title = "Quantidade de células ao longo do tempo",
-    x = "Timepoint clínico",
-    y = "Número de células"
-  ) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-
-# Amostras com tempo relativo à defervescência
-amostras_defervescente <- unlist(amostras_por_arquivo[c("dt1_control", "dt1_DF", "dt1_DHF", "dt2_DF_1", "dt2_DF_2", "dt3_primary", "dt3_secundary")])
-
-# Amostras com tempo absoluto de febre
-amostras_febre_absoluta <- unlist(amostras_por_arquivo[c("dt4_control", "dt4_DF", "dt4_DWS", "dt4_SD")])
-
-# Extrair metadados
-meta <-  merged_sct_harmony@meta.data
-
-# Defervescente
-df_def <- meta %>%
-  filter(orig.ident %in% amostras_defervescente) %>%
-  count(timepoint) %>%
-  mutate(timepoint = factor(timepoint, levels = c("control","-5","-4", "-3", "-2", "-1", "0", 
-                                                  "1", "2", "3", "5", "7", "14", "180"))) %>%
-  arrange(timepoint)
-
-
-# Febre absoluta
-df_febre <- meta %>%
-  filter(orig.ident %in% amostras_febre_absoluta) %>%
-  count(timepoint) %>%
-  mutate(timepoint = factor(timepoint, levels = c("control", "1", "2", "3", "4", "5", "6", "7", "T"))) %>%
-  arrange(timepoint)
-
-
-# Gráfico 1: tempo relativo à defervescência
-p1 <- ggplot(df_def, aes(x = timepoint, y = n ,group = 1)) +
-  geom_line(color = "#2C3E50", size = 1) +
-  geom_point(color = "#E74C3C", size = 2) +
-  theme_minimal() +
-  labs(title = "Células ao longo do tempo (defervescência)", x = "Dia relativo", y = "Número de células")
-
-# Gráfico 2: tempo absoluto de febre
-p2 <- ggplot(df_febre, aes(x = timepoint, y = n, group = 1)) +
-  geom_line(color = "#2C3E50", size = 1) +
-  geom_point(color = "#E74C3C", size = 2) +
-  theme_minimal() +
-  labs(title = "Células ao longo do tempo (dias de febre)", x = "Dia de febre", y = "Número de células")
-
-p1 + p2
+saveRDS(integrated_sct_harmony, file = "sct_harmony_merged.rds")
