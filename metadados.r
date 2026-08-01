@@ -190,8 +190,8 @@ metadata_samples <- data.frame(
             "defervescence", "defervescence", 
             "convalescent",
             
-            "acute", "acute", "acute",
-            "acute", "acute", "acute",
+            "acute", "acute", "convalescent",
+            "acute", "acute", "convalescent",
             
             "acute", "post-defervescence",
             "acute", "post-defervescence",
